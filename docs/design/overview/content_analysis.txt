@@ -1,0 +1,10 @@
+CONTENT ANALYSIS OVERVIEW
+
+- Periodic stills taken from videos with timestamp
+- Frames analyzed for their content
+- Transcript recorded with timestamps for words or groups of words
+- Full summary of video produced from the data
+    - Include key events, noting specific timestamps
+    
+- A focus here is going to be on the overall format of the video meme
+    - Structure, pacing, sfx, music, etc

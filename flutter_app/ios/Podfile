@@ -1,0 +1,3 @@
+platform :ios, '12.0'  # Firebase requires iOS 12.0 or higher
+
+// ... existing code ... 

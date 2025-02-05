@@ -1,0 +1,11 @@
+ONBOARDING OVERVIEW
+
+- Make onboarding optional
+    - nobody wants to *have* to do that shit
+- Broad interest categories
+
+    - food, memes, gaming, etc
+- Demographics
+    - what is even acceptable to ask for anymore? lol
+    - age, gender, location, etc
+    - can we get tracking metadata from other sources?

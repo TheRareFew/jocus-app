@@ -1,0 +1,12 @@
+Likes:
+    - Addictive
+    - Able to find enjoyable niches
+
+Dislikes:
+    - Ads and live streams pollute "For You" page
+        - note: do we take ads into consideration?
+            - if true: how do we make ads not offensive to the user's experience?
+
+    - Getting fed a bunch of the same stuff after engaging with one video
+
+ 

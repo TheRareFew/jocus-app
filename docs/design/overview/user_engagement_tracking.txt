@@ -1,0 +1,19 @@
+USER ENGAGEMENT TRACKING OVERVIEW
+
+- NOTE: User engagement data will be simulated for now, since we're focusing on the creator experience
+
+- Baseline:
+    - Time spent before swipe
+    - Emoji reactions
+        - time in video
+        - sentiment conveyed
+    - Comments
+        - Sentiment conveyed
+    - Shares
+
+- Trend tracking
+- User engagement tracking (algorithm)
+
+
+- Is it possible to track user eye movement and/or facial expression realistically in a mobile app?
+    - Keep this in mind, but don't plan around it

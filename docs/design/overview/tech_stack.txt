@@ -1,0 +1,17 @@
+TECH STACK OVERVIEW
+
+flutter
+firebase
+
+
+
+if needed:
+OpenShot API
+
+    - for video editing
+
+agoria.io
+    - for live streaming, calls, translations, etc
+
+backend API
+    - only if firebase functions don't work for one of our applications

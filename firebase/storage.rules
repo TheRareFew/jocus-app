@@ -1,0 +1,61 @@
+rules_version = '2';
+
+// Craft rules based on data in your Firestore database
+// allow write: if firestore.get(
+//    /databases/(default)/documents/users/$(request.auth.uid)).data.isAdmin;
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Function to check if the file is a video
+    function isVideo() {
+      return request.resource.contentType.matches('video/.*');
+    }
+    
+    // Function to check file size (max 500MB)
+    function isValidSize() {
+      return request.resource.size <= 500 * 1024 * 1024;
+    }
+    
+    // Videos folder rules
+    match /videos/{userId}/{videoId} {
+      // Allow read if the video status is 'ready' in Firestore
+      allow read: if 
+        request.auth != null ||
+        firestore.get(/databases/(default)/documents/videos/$(videoId)).data.status == 'ready';
+      
+      // Allow upload if user is authenticated and owns the video
+      allow create: if
+        request.auth != null &&
+        request.auth.uid == userId &&
+        isVideo() &&
+        isValidSize();
+        
+      // Allow update/delete if user owns the video
+      allow update, delete: if
+        request.auth != null &&
+        request.auth.uid == userId;
+    }
+    
+    // Thumbnails folder rules
+    match /thumbnails/{userId}/{videoId} {
+      // Allow public read for thumbnails
+      allow read: if true;
+      
+      // Allow create/update if user owns the video
+      allow create, update: if
+        request.auth != null &&
+        request.auth.uid == userId &&
+        request.resource.contentType.matches('image/.*') &&
+        request.resource.size <= 5 * 1024 * 1024;
+        
+      // Allow delete if user owns the video
+      allow delete: if
+        request.auth != null &&
+        request.auth.uid == userId;
+    }
+    
+    // Default deny all other access
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

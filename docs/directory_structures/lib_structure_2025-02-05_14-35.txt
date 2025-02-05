@@ -1,0 +1,28 @@
+Folder map of c:\gauntlet\JOCUS\jocus-app\flutter_app\lib
+==================================================
+
+├── core/
+│   ├── routes/
+│   └── theme/
+├── models/
+│   └── user.dart
+├── providers/
+│   └── auth_provider.dart
+├── screens/
+│   ├── auth/
+│   │   └── login_screen.dart
+│   ├── creator/
+│   │   ├── analytics_screen.dart
+│   │   ├── dashboard_screen.dart
+│   │   ├── studio_screen.dart
+│   │   └── trending_formats_screen.dart
+│   ├── onboarding/
+│   │   └── onboarding_screen.dart
+│   └── viewer/
+│       └── feed_screen.dart
+├── services/
+│   └── firebase_service.dart
+├── utilities/
+│   ├── constants.dart
+│   └── routes.dart
+└── main.dart

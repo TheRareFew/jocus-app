@@ -1,0 +1,19 @@
+USER STORIES
+
+Creator:
+    - Receives suggested meme formats.
+    - Edits video with features tailored for memes
+    - Is given insights on how to "go viral" (this is a win-win for the creator and the app company)
+    - Is given audience insights such as common interests among audience members
+
+
+User:
+    - Receives scrolling feed of memes
+        - keep simple, we're really just trying to focus on the creator experience here
+    
+
+Universal:
+    - New users have an onboarding flow
+        - Are you a creator?
+        - What type of memes do you want to make/see?
+            - animals, pop culture, politics, etc.
