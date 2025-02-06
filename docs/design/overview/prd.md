@@ -1,15 +1,15 @@
-# JOCUS - Meme Creation Platform
+# JOCUS - Standup Comedy Creation Platform
 ## Product Requirements Document
 
 ### Overview
-Jocus is a creator-first platform focused on empowering meme creators through intelligent content analysis and creation tools. While maintaining a basic viewing experience, our core focus is on providing creators with powerful tools and insights to optimize their content.
+Jocus is a creator-first platform focused on empowering comedy creators through intelligent content analysis and creation tools. While maintaining a basic viewing experience, our core focus is on providing creators with powerful tools and insights to optimize their standup comedy bits.
 
 ### Target Audience
 #### Primary: Content Creators (Core Focus)
-- Meme creators looking for insights and tools to improve their content
-- Users interested in understanding what makes content go viral
+- Comedy creators looking for insights and tools to improve their content
+- Users interested in understanding what makes comedy bits successful
 - Content creators seeking audience insights and analytics
-- Both novice creators looking to start and experienced creators wanting to optimize
+- Both novice comedians looking to start and experienced creators wanting to optimize
 
 #### Secondary: Content Consumers (MVP Implementation)
 - Basic viewing and engagement functionality
@@ -18,18 +18,19 @@ Jocus is a creator-first platform focused on empowering meme creators through in
 ### Core Features
 
 #### 1. Creator Studio (Primary Focus)
-- **Meme Format Analysis & Suggestions**
-  - AI-powered analysis of trending formats
-  - Format-specific templates with optimal timing suggestions
-  - Trending sound/music recommendations
-  - "Viral potential" scoring system
-  - Historical performance analysis of similar formats
+- **Comedy Bit Analysis & Suggestions**
+  - AI-powered analysis of successful comedy structures
+  - Setup and punchline timing optimization
+  - Pause and audience reaction timing suggestions
+  - Subject matter trend analysis
+  - "Laugh potential" scoring system
+  - Historical performance analysis of similar bits
 
 - **Advanced Video Editing Tools**
-  - Template-based editing for popular meme formats
-  - Smart timing suggestions for cuts and transitions
-  - Sound effect library optimized for memes
-  - Quick-access to trending audio clips
+  - Structure-based editing for comedy timing
+  - Smart timing suggestions for pauses and punchlines
+  - Audience reaction sound library
+  - Quick-access to common comedy sound effects
   - Automated caption generation and positioning
   - Multi-format export (optimize for different platforms)
   - Integration with OpenShot API for advanced editing
@@ -37,12 +38,12 @@ Jocus is a creator-first platform focused on empowering meme creators through in
 - **Comprehensive Creator Analytics**
   - Real-time performance metrics
   - Audience engagement patterns
-  - Content performance analysis by format type
+  - Content performance analysis by comedy style
   - Timing analysis (best posting times)
   - Audience demographic insights
-  - Format success rate tracking
+  - Comedy style success rate tracking
   - A/B testing tools for content variations
-  - Viral trajectory predictions
+  - Laugh trajectory predictions
 
 #### 2. Content Feed (MVP Implementation)
 - Basic scrollable video feed
@@ -55,22 +56,22 @@ Jocus is a creator-first platform focused on empowering meme creators through in
 
 #### 3. Content Analysis Engine (Creator Tools)
 - Sophisticated frame-by-frame video analysis
-- Advanced format detection:
-  - Structure identification
-  - Pacing analysis
-  - Transition detection
-  - Sound effect categorization
-  - Music analysis
+- Advanced comedy structure detection:
+  - Setup identification
+  - Punchline timing analysis
+  - Pause detection
+  - Audience reaction analysis
+  - Laughter intensity measurement
 - Performance pattern recognition
 - Viral pattern detection
 - Content categorization
 
 #### 4. Creator-Focused Onboarding
 - Creator profile setup
-- Creation style analysis
-- Format preference selection
+- Comedy style analysis
+- Subject matter preferences
 - Tutorial system for creation tools
-- Sample template exploration
+- Sample bit exploration
 - Analytics dashboard introduction
 
 ### Technical Architecture
@@ -95,21 +96,21 @@ Jocus is a creator-first platform focused on empowering meme creators through in
 - Creator-focused reporting
 
 ### Future Considerations
-- Advanced AI features for creators
+- Advanced AI features for comedic timing
 - Expanded editing capabilities
 - Creator collaboration tools
-- Content strategy recommendations
+- Comedy writing assistance
 - Multi-platform publishing tools
 
 ### Success Metrics
 1. Creator-Focused Metrics (Primary)
    - Creator retention rate
    - Tool usage statistics
-   - Format adoption rate
+   - Comedy style adoption rate
    - Creator satisfaction scores
    - Content improvement trends
    - Time saved in creation process
-   - Viral hit rate
+   - Laugh hit rate
 
 2. Platform Performance (Secondary)
    - Basic engagement metrics
@@ -129,17 +130,17 @@ Jocus is a creator-first platform focused on empowering meme creators through in
 
 2. Week 2: AI & Advanced Creator Features
    - Content analysis engine
-   - Format detection system
+   - Comedy structure detection system
    - Advanced analytics
-   - Template system
    - Performance optimization
    - Creator insights dashboard
    - Trend analysis implementation
+   - Laugh tracking system
 
 ### Competitive Advantage
 - Creator-first approach
-- Advanced AI-powered format analysis
+- Advanced AI-powered comedy analysis
 - Comprehensive creator analytics
 - Sophisticated editing tools
 - Data-driven creation guidance
-- Format optimization tools
+- Comedy timing optimization tools

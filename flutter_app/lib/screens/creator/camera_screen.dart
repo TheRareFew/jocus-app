@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
+import 'package:flutter/services.dart';
 
 class CameraScreen extends StatefulWidget {
   const CameraScreen({Key? key}) : super(key: key);
@@ -16,37 +17,89 @@ class _CameraScreenState extends State<CameraScreen> {
   bool _isInitialized = false;
   bool _isRecording = false;
   String? _errorMessage;
+  List<CameraDescription>? _cameras;
+  bool _isEmulator = false;
 
   @override
   void initState() {
     super.initState();
+    _checkEmulator();
     _initializeCamera();
+  }
+
+  Future<void> _checkEmulator() async {
+    // Simple check for Android emulator - not perfect but works for most cases
+    if (Platform.isAndroid) {
+      final String brand = await _getAndroidBrand();
+      _isEmulator = brand.toLowerCase().contains('google') || 
+                    brand.toLowerCase().contains('sdk');
+    }
+  }
+
+  Future<String> _getAndroidBrand() async {
+    try {
+      final result = await Process.run('getprop', ['ro.product.brand']);
+      return result.stdout.toString().trim();
+    } catch (e) {
+      return '';
+    }
   }
 
   Future<void> _initializeCamera() async {
     try {
-      final cameras = await availableCameras();
-      if (cameras.isEmpty) {
+      _cameras = await availableCameras();
+      if (_cameras!.isEmpty) {
         setState(() => _errorMessage = 'No cameras found');
         return;
       }
 
       // Use the first available back camera
-      final camera = cameras.firstWhere(
+      final camera = _cameras!.firstWhere(
         (camera) => camera.lensDirection == CameraLensDirection.back,
-        orElse: () => cameras.first,
+        orElse: () => _cameras!.first,
       );
 
-      _controller = CameraController(
-        camera,
-        ResolutionPreset.high,
-        enableAudio: true,
-      );
-
-      await _controller!.initialize();
-      setState(() => _isInitialized = true);
+      await _switchCamera(camera);
     } catch (e) {
       setState(() => _errorMessage = 'Failed to initialize camera: $e');
+    }
+  }
+
+  Future<void> _switchCamera(CameraDescription camera) async {
+    if (_controller != null) {
+      await _controller!.dispose();
+    }
+
+    _controller = CameraController(
+      camera,
+      ResolutionPreset.high,
+      enableAudio: true,
+    );
+
+    await _controller!.initialize();
+    if (mounted) setState(() => _isInitialized = true);
+  }
+
+  Future<void> _toggleCamera() async {
+    if (_cameras == null || _cameras!.length < 2) return;
+
+    final currentLensDirection = _controller!.description.lensDirection;
+    CameraDescription? newCamera;
+
+    if (currentLensDirection == CameraLensDirection.back) {
+      newCamera = _cameras!.firstWhere(
+        (camera) => camera.lensDirection == CameraLensDirection.front,
+        orElse: () => _cameras!.first,
+      );
+    } else {
+      newCamera = _cameras!.firstWhere(
+        (camera) => camera.lensDirection == CameraLensDirection.back,
+        orElse: () => _cameras!.first,
+      );
+    }
+
+    if (newCamera != null) {
+      await _switchCamera(newCamera);
     }
   }
 
@@ -113,6 +166,11 @@ class _CameraScreenState extends State<CameraScreen> {
       appBar: AppBar(
         title: const Text('Record Video'),
         actions: [
+          if (_cameras != null && _cameras!.length > 1)
+            IconButton(
+              icon: const Icon(Icons.flip_camera_ios),
+              onPressed: !_isRecording ? _toggleCamera : null,
+            ),
           if (_isRecording)
             IconButton(
               icon: const Icon(Icons.stop),
@@ -122,7 +180,29 @@ class _CameraScreenState extends State<CameraScreen> {
       ),
       body: Stack(
         children: [
-          CameraPreview(_controller!),
+          Center(
+            child: AspectRatio(
+              aspectRatio: 9 / 16, // Force portrait aspect ratio
+              child: ClipRect(
+                child: OverflowBox(
+                  alignment: Alignment.center,
+                  child: FittedBox(
+                    fit: BoxFit.fitWidth,
+                    child: SizedBox(
+                      width: _controller!.value.previewSize!.height,
+                      height: _controller!.value.previewSize!.width,
+                      child: _isEmulator
+                        ? Transform.rotate(
+                            angle: 3.14159 / 2,
+                            child: CameraPreview(_controller!),
+                          )
+                        : CameraPreview(_controller!),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
           Positioned(
             left: 0,
             right: 0,
@@ -176,4 +256,4 @@ class _CameraScreenState extends State<CameraScreen> {
       ),
     );
   }
-} 
+}

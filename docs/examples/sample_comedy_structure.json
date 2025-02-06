@@ -1,0 +1,64 @@
+{
+  "title": "Daily Routine Breakdown",
+  "description": "A relatable bit about morning routines with strong callback potential",
+  "timeline": [
+    {
+      "type": "setup",
+      "description": "Establish morning routine context - hitting snooze button",
+      "durationSeconds": 30,
+      "details": {
+        "energy": "calm",
+        "voiceTone": "observational"
+      }
+    },
+    {
+      "type": "pause",
+      "description": "Let audience relate to the situation",
+      "durationSeconds": 2,
+      "details": {
+        "purpose": "build tension",
+        "bodyLanguage": "knowing look"
+      }
+    },
+    {
+      "type": "punchline",
+      "description": "Reveal twist about alarm clock collection",
+      "durationSeconds": 5,
+      "details": {
+        "delivery": "quick",
+        "expectedReaction": "surprise laugh"
+      }
+    },
+    {
+      "type": "pause",
+      "description": "Allow laughter to build",
+      "durationSeconds": 3,
+      "details": {
+        "purpose": "laugh break"
+      }
+    },
+    {
+      "type": "callback",
+      "description": "Reference back to first alarm while discussing evening routine",
+      "durationSeconds": 8,
+      "details": {
+        "callbackTo": "snooze button",
+        "timing": "end of bit"
+      }
+    }
+  ],
+  "metrics": {
+    "laughDensity": 4.2,
+    "audienceScore": 8.5,
+    "peakReactionTimestamp": 35,
+    "callbackEffectiveness": 0.9
+  },
+  "metadata": {
+    "subject": "Daily Life",
+    "comedyStyle": "Observational",
+    "duration": 48,
+    "popularity": 95,
+    "tags": ["morning routine", "relatable", "callbacks", "daily life"],
+    "difficulty": "intermediate"
+  }
+}

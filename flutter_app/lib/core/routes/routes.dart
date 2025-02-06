@@ -11,12 +11,22 @@ import '../../screens/onboarding/onboarding_screen.dart';
 class Routes {
   static const String login = '/login';
   static const String signup = '/signup';
-  static const String studio = '/studio';
-  static const String dashboard = '/dashboard';
-  static const String analytics = '/analytics';
-  static const String trendingFormats = '/trending-formats';
-  static const String feed = '/feed';
   static const String onboarding = '/onboarding';
+  
+  // Main navigation routes
+  static const String creatorHome = '/creator';
+  static const String viewerHome = '/viewer';
+  
+  // Creator sub-routes
+  static const String studio = '/creator/studio';
+  static const String dashboard = '/creator/dashboard';
+  static const String analytics = '/creator/analytics';
+  static const String trendingFormats = '/creator/trending-formats';
+  
+  // Viewer sub-routes
+  static const String feed = '/viewer/feed';
+  static const String explore = '/viewer/explore';
+  static const String profile = '/viewer/profile';
 }
 
 Route<dynamic> generateRoute(RouteSettings settings) {
@@ -27,6 +37,12 @@ Route<dynamic> generateRoute(RouteSettings settings) {
       return MaterialPageRoute(builder: (_) => const LoginScreen());
     case Routes.signup:
       return MaterialPageRoute(builder: (_) => const SignupScreen());
+    case Routes.onboarding:
+      return MaterialPageRoute(builder: (_) => const OnboardingScreen());
+    case Routes.creatorHome:
+      return MaterialPageRoute(builder: (_) => const DashboardScreen());
+    case Routes.viewerHome:
+      return MaterialPageRoute(builder: (_) => const FeedScreen());
     case Routes.studio:
       return MaterialPageRoute(builder: (_) => const StudioScreen());
     case Routes.dashboard:
@@ -37,8 +53,6 @@ Route<dynamic> generateRoute(RouteSettings settings) {
       return MaterialPageRoute(builder: (_) => const TrendingFormatsScreen());
     case Routes.feed:
       return MaterialPageRoute(builder: (_) => const FeedScreen());
-    case Routes.onboarding:
-      return MaterialPageRoute(builder: (_) => const OnboardingScreen());
     default:
       return MaterialPageRoute(
         builder: (_) => Scaffold(

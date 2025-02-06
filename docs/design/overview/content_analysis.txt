@@ -6,5 +6,46 @@ CONTENT ANALYSIS OVERVIEW
 - Full summary of video produced from the data
     - Include key events, noting specific timestamps
     
-- A focus here is going to be on the overall format of the video meme
-    - Structure, pacing, sfx, music, etc
+Content Analysis System
+
+Key Analysis Points:
+- Timing analysis for setup and punchline delivery
+- Pause detection and optimization
+- Audience reaction tracking (laughter, applause)
+- Subject matter categorization
+- Comedy style identification
+- A focus here is going to be on the overall structure of the comedy bit
+
+Analysis Components:
+1. Audio Analysis
+   - Laughter detection and intensity
+   - Audience reaction patterns
+   - Silence/pause detection
+   - Voice tone and pacing
+
+2. Visual Analysis
+   - Performer gestures and movement
+   - Audience reaction shots (if available)
+   - Stage presence metrics
+   - Camera angles and framing
+
+3. Content Structure
+   - Setup identification
+   - Punchline timing
+   - Callback detection
+   - Theme consistency
+   - Subject matter classification
+
+4. Performance Metrics
+   - Laugh density (laughs per minute)
+   - Audience engagement levels
+   - Peak reaction moments
+   - Setup-to-punchline ratio
+   - Callback effectiveness
+
+5. Trend Analysis
+   - Popular comedy styles
+   - Successful subject matters
+   - Optimal bit length
+   - Best performing structures
+   - Audience preference patterns

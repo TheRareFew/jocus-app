@@ -3,16 +3,21 @@ Folder map of c:\gauntlet\JOCUS\jocus-app\flutter_app\lib
 
 ├── core/
 │   ├── routes/
+│   │   └── routes.dart
 │   └── theme/
 ├── models/
-│   └── user.dart
+│   ├── user.dart
+│   └── video.dart
 ├── providers/
-│   └── auth_provider.dart
+│   ├── auth_provider.dart
+│   └── video_upload_provider.dart
 ├── screens/
 │   ├── auth/
-│   │   └── login_screen.dart
+│   │   ├── login_screen.dart
+│   │   └── signup_screen.dart
 │   ├── creator/
 │   │   ├── analytics_screen.dart
+│   │   ├── camera_screen.dart
 │   │   ├── dashboard_screen.dart
 │   │   ├── studio_screen.dart
 │   │   └── trending_formats_screen.dart
@@ -21,7 +26,9 @@ Folder map of c:\gauntlet\JOCUS\jocus-app\flutter_app\lib
 │   └── viewer/
 │       └── feed_screen.dart
 ├── services/
-│   └── firebase_service.dart
+│   ├── firebase_service.dart
+│   ├── openshot_service.dart
+│   └── video_upload_service.dart
 ├── utilities/
 │   ├── constants.dart
 │   └── routes.dart

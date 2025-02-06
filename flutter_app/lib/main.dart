@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'providers/auth_provider.dart';
 import 'providers/video_upload_provider.dart';
+import 'providers/navigation_provider.dart';
 import 'core/routes/routes.dart' as app_routes;
 
 void main() async {
@@ -20,15 +21,22 @@ class MyApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => VideoUploadProvider()),
+        ChangeNotifierProvider(create: (_) => NavigationProvider()),
       ],
-      child: MaterialApp(
-        title: 'Jocus',
-        theme: ThemeData(
-          primarySwatch: Colors.blue,
-          visualDensity: VisualDensity.adaptivePlatformDensity,
-        ),
-        initialRoute: app_routes.Routes.login,
-        onGenerateRoute: app_routes.generateRoute,
+      child: Consumer<AuthProvider>(
+        builder: (context, authProvider, _) {
+          return MaterialApp(
+            title: 'Jocus',
+            theme: ThemeData(
+              primarySwatch: Colors.blue,
+              visualDensity: VisualDensity.adaptivePlatformDensity,
+            ),
+            initialRoute: authProvider.isAuthenticated 
+              ? app_routes.Routes.creatorHome 
+              : app_routes.Routes.login,
+            onGenerateRoute: app_routes.generateRoute,
+          );
+        }
       ),
     );
   }

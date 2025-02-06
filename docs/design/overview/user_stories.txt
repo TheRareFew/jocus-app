@@ -1,19 +1,23 @@
 USER STORIES
 
-Creator:
-    - Receives suggested meme formats.
-    - Edits video with features tailored for memes
-    - Is given insights on how to "go viral" (this is a win-win for the creator and the app company)
-    - Is given audience insights such as common interests among audience members
+1. As a comedy creator:
+    - Records comedy bits through the app
+    - Receives suggested comedy structures and timing
+    - Edits video with features tailored for standup comedy
+    - Gets insights on audience reactions and engagement
+    - Views analytics on comedy performance
 
+2. As a content viewer:
+    - Receives scrolling feed of comedy bits
+    - Can like, comment, and share content
+    - Discovers new comedians
+    - Can follow favorite creators
 
-User:
-    - Receives scrolling feed of memes
-        - keep simple, we're really just trying to focus on the creator experience here
-    
-
-Universal:
-    - New users have an onboarding flow
-        - Are you a creator?
-        - What type of memes do you want to make/see?
-            - animals, pop culture, politics, etc.
+3. User Research Questions:
+    - What makes you laugh the most in short-form comedy?
+    - How do you currently create and share comedy content?
+    - What tools would help you improve your comedy timing?
+    - What features would help you develop better punchlines?
+    - How do you measure the success of your comedy content?
+    - What kind of analytics would be most helpful?
+    - How important is audience reaction tracking?

@@ -4,16 +4,59 @@ import 'package:firebase_auth/firebase_auth.dart';
 class AuthProvider with ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   User? _user;
+  bool _devBypass = false;
 
   AuthProvider() {
+    // In debug mode, allow dev bypass
+    if (kDebugMode) {
+      _devBypass = true;
+      // Auto sign in with test account in debug mode
+      _autoDevSignIn();
+    }
+
     _auth.authStateChanges().listen((user) {
       _user = user;
       notifyListeners();
     });
   }
 
+  Future<void> _autoDevSignIn() async {
+    if (!_devBypass) return;
+    
+    try {
+      await signInWithEmailAndPassword(
+        'test@example.com',
+        'password123'
+      );
+    } catch (e) {
+      // If test account doesn't exist, create it
+      try {
+        await createUserWithEmailAndPassword(
+          'test@example.com',
+          'password123'
+        );
+      } catch (e) {
+        debugPrint('Failed to create test account: $e');
+      }
+    }
+  }
+
+  // Toggle dev bypass for testing
+  void toggleDevBypass() {
+    if (!kDebugMode) return;
+    _devBypass = !_devBypass;
+    if (_devBypass) {
+      _autoDevSignIn();
+    } else {
+      signOut();
+    }
+    notifyListeners();
+  }
+
+  bool get isDevBypassEnabled => _devBypass;
+
   User? get currentUser => _user;
-  bool get isAuthenticated => _user != null;
+  bool get isAuthenticated => _devBypass || _user != null;
 
   Future<UserCredential> signInWithEmailAndPassword(String email, String password) async {
     try {
