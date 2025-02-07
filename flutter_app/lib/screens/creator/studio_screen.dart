@@ -20,6 +20,15 @@ class StudioScreen extends StatefulWidget {
 class _StudioScreenState extends State<StudioScreen> {
   ComedyStructure? selectedStructure;
 
+  @override
+  void initState() {
+    super.initState();
+    // Reset the upload provider when entering the screen
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<VideoUploadProvider>().reset();
+    });
+  }
+
   Future<void> _pickAndUploadVideo(BuildContext context) async {
     try {
       final result = await FilePicker.platform.pickFiles(
@@ -52,6 +61,7 @@ class _StudioScreenState extends State<StudioScreen> {
         userId: userId,
         title: details['title']!,
         description: details['description']!,
+        comedyStructure: selectedStructure,  // Now optional
       );
     }
   }
@@ -95,27 +105,59 @@ class _StudioScreenState extends State<StudioScreen> {
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 32),
                     child: Card(
-                      child: ListTile(
-                        title: Text(
-                          selectedStructure?.title ?? 'Select Comedy Structure',
-                          style: TextStyle(
-                            color: selectedStructure != null 
-                              ? Theme.of(context).textTheme.bodyLarge?.color 
-                              : Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.5),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ListTile(
+                            title: Text(
+                              selectedStructure?.title ?? 'Select Comedy Structure (Optional)',
+                              style: TextStyle(
+                                color: selectedStructure == null ? Colors.grey : null,
+                              ),
+                            ),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (selectedStructure != null)
+                                  IconButton(
+                                    icon: const Icon(Icons.clear),
+                                    onPressed: () {
+                                      setState(() {
+                                        selectedStructure = null;
+                                      });
+                                    },
+                                  ),
+                                const Icon(Icons.arrow_forward_ios),
+                              ],
+                            ),
+                            onTap: () async {
+                              final structure = await Navigator.push<ComedyStructure>(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const MyComedyStructuresScreen(
+                                    selectionMode: true,
+                                  ),
+                                ),
+                              );
+                              if (structure != null) {
+                                setState(() {
+                                  selectedStructure = structure;
+                                });
+                              }
+                            },
                           ),
-                        ),
-                        trailing: const Icon(Icons.arrow_forward_ios),
-                        onTap: () async {
-                          final structure = await Navigator.pushNamed(
-                            context,
-                            Routes.myComedyStructures,
-                            arguments: {'selectionMode': true},
-                          ) as ComedyStructure?;
-                          
-                          if (structure != null) {
-                            setState(() => selectedStructure = structure);
-                          }
-                        },
+                          if (selectedStructure == null)
+                            const Padding(
+                              padding: EdgeInsets.fromLTRB(16, 0, 16, 16),
+                              child: Text(
+                                'Adding a comedy structure helps organize your content and track audience reactions at specific moments.',
+                                style: TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
                   ),
@@ -125,34 +167,27 @@ class _StudioScreenState extends State<StudioScreen> {
                     children: [
                       ElevatedButton.icon(
                         onPressed: () => _pickAndUploadVideo(context),
-                        icon: const Icon(Icons.file_upload),
+                        icon: const Icon(Icons.upload_file),
                         label: const Text('Upload Video'),
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                        ),
                       ),
                       const SizedBox(width: 16),
                       ElevatedButton.icon(
-                        onPressed: selectedStructure != null ? () => _startRecording(context) : null,
+                        onPressed: () => _startRecording(context),
                         icon: const Icon(Icons.videocam),
                         label: const Text('Record Video'),
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                          backgroundColor: selectedStructure != null ? Colors.blue : null,
-                        ),
                       ),
                     ],
                   ),
                 ] else if (provider.state == UploadState.error) ...[
-                  Icon(Icons.error, size: 64, color: Colors.red[700]),
+                  const Icon(Icons.error_outline, size: 64, color: Colors.red),
                   const SizedBox(height: 16),
                   Text(
                     provider.error ?? 'An error occurred',
-                    style: TextStyle(color: Colors.red[700]),
+                    style: const TextStyle(color: Colors.red),
                   ),
                   const SizedBox(height: 16),
                   ElevatedButton(
-                    onPressed: provider.reset,
+                    onPressed: () => provider.reset(),
                     child: const Text('Try Again'),
                   ),
                 ] else if (provider.state == UploadState.completed) ...[
@@ -161,17 +196,25 @@ class _StudioScreenState extends State<StudioScreen> {
                   const Text('Upload Complete!'),
                   const SizedBox(height: 16),
                   ElevatedButton(
-                    onPressed: provider.reset,
+                    onPressed: () {
+                      provider.reset();
+                      setState(() {
+                        selectedStructure = null;
+                      });
+                    },
                     child: const Text('Upload Another Video'),
                   ),
                 ] else ...[
                   const CircularProgressIndicator(),
                   const SizedBox(height: 16),
-                  Text(_getStateMessage(provider.state)),
+                  Text(
+                    'Uploading... ${(provider.progress * 100).toStringAsFixed(1)}%',
+                  ),
                   const SizedBox(height: 8),
-                  LinearProgressIndicator(value: provider.progress),
-                  const SizedBox(height: 16),
-                  Text('${(provider.progress * 100).toStringAsFixed(1)}%'),
+                  Text(
+                    _getUploadStateMessage(provider.state),
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
                 ],
               ],
             ),
@@ -181,20 +224,20 @@ class _StudioScreenState extends State<StudioScreen> {
     );
   }
 
-  String _getStateMessage(UploadState state) {
+  String _getUploadStateMessage(UploadState state) {
     switch (state) {
       case UploadState.validating:
         return 'Validating video...';
       case UploadState.uploadingToOpenShot:
-        return 'Uploading to editor...';
+        return 'Preparing for processing...';
       case UploadState.processing:
         return 'Processing video...';
       case UploadState.downloadingProcessed:
         return 'Downloading processed video...';
       case UploadState.uploadingToFirebase:
-        return 'Uploading to storage...';
+        return 'Uploading to server...';
       default:
-        return 'Processing...';
+        return state.toString().split('.').last;
     }
   }
 }

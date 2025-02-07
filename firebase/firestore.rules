@@ -26,12 +26,53 @@ service cloud.firestore {
         && hasValidBeat;
     }
 
+    // Helper function to validate bit data
+    function isValidBit(data) {
+      return data.keys().hasAll(['title', 'description', 'userId', 'videoUrl'])
+        && data.title is string
+        && data.description is string
+        && data.userId == request.auth.uid
+        && data.videoUrl is string;
+    }
+
     // Videos collection rules
     match /videos/{videoId} {
       allow read: if true;  // Anyone can read videos
       allow create: if isAuthenticated() 
         && request.resource.data.userId == request.auth.uid;
       allow update, delete: if isOwner(resource.data.userId);
+    }
+
+    // Comedy bits collection
+    match /bits/{bitId} {
+      allow read: if true;  // Anyone can read bits
+      allow create: if isAuthenticated() 
+        && isValidBit(request.resource.data);
+      allow update: if isOwner(resource.data.userId);
+      allow delete: if isOwner(resource.data.userId);
+
+      // Subcollection for reactions
+      match /reactions/{reactionId} {
+        allow read: if true;  // Anyone can read reactions
+        allow create: if isAuthenticated()
+          && request.resource.data.keys().hasAll(['type', 'timestamp', 'userId', 'createdAt'])
+          && request.resource.data.type in ['rofl', 'smirk', 'eyeroll', 'vomit']
+          && request.resource.data.timestamp is float
+          && request.resource.data.timestamp >= 0
+          && request.resource.data.userId == request.auth.uid
+          && request.resource.data.createdAt is timestamp;
+        allow update: if false;  // Reactions cannot be modified
+        allow delete: if isAuthenticated() 
+          && resource.data.userId == request.auth.uid;  // Users can only delete their own reactions
+      }
+
+      // Subcollection for analytics
+      match /analytics/{docId} {
+        allow read: if true;  // Anyone can read analytics
+        allow create: if isAuthenticated() 
+          && request.resource.data.keys().hasAll(['totalReactions', 'reactionCounts', 'viewCount', 'lastUpdated']);
+        allow update: if isAuthenticated();  // Allow updates for analytics
+      }
     }
 
     // Comedy structures collection (templates)
@@ -49,7 +90,7 @@ service cloud.firestore {
       allow create, update: if isOwner(userId)
         && isValidComedyStructure(request.resource.data)
         && request.resource.data.authorId == userId
-        && request.resource.data.isTemplate == false;  // Must be personal structure
+        && request.resource.data.isTemplate == false;  // Personal structures only
       allow delete: if isOwner(userId);
     }
 

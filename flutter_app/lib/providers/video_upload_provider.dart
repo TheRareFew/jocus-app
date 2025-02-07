@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import '../models/video.dart';
+import '../models/bit.dart';
+import '../models/comedy_structure.dart';
 import '../services/video_upload_service.dart';
 
 enum UploadState {
@@ -21,11 +23,13 @@ class VideoUploadProvider with ChangeNotifier {
   String? _error;
   double _progress = 0.0;
   Video? _currentVideo;
+  Bit? _currentBit;
 
   UploadState get state => _state;
   String? get error => _error;
   double get progress => _progress;
   Video? get currentVideo => _currentVideo;
+  Bit? get currentBit => _currentBit;
 
   void _setState(UploadState newState) {
     _state = newState;
@@ -47,6 +51,7 @@ class VideoUploadProvider with ChangeNotifier {
     required String userId,
     required String title,
     required String description,
+    ComedyStructure? comedyStructure,
   }) async {
     try {
       _error = null;
@@ -57,14 +62,16 @@ class VideoUploadProvider with ChangeNotifier {
       _setProgress(0.1);
 
       _setState(UploadState.uploadingToOpenShot);
-      final uploadedVideo = await _uploadService.uploadVideo(
+      final (uploadedVideo, bit) = await _uploadService.uploadVideo(
         video: video,
         userId: userId,
         title: title,
         description: description,
+        comedyStructure: comedyStructure,
       );
 
       _currentVideo = uploadedVideo;
+      _currentBit = bit;
       _setProgress(1.0);
       _setState(UploadState.completed);
     } catch (e) {
@@ -77,6 +84,7 @@ class VideoUploadProvider with ChangeNotifier {
     _error = null;
     _progress = 0.0;
     _currentVideo = null;
+    _currentBit = null;
     notifyListeners();
   }
 
@@ -90,4 +98,4 @@ class VideoUploadProvider with ChangeNotifier {
       _setError(e.toString());
     }
   }
-} 
+}

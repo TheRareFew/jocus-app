@@ -11,6 +11,7 @@ class ComedyStructure {
   final bool isTemplate;  // Whether this is a template from trending formats
   final DateTime? createdAt;
   final DateTime? updatedAt;
+  final List<ReactionData> reactions;
 
   ComedyStructure({
     required this.id,
@@ -23,6 +24,7 @@ class ComedyStructure {
     this.isTemplate = true,
     this.createdAt,
     this.updatedAt,
+    this.reactions = const [],
   });
 
   factory ComedyStructure.fromFirestore(DocumentSnapshot doc) {
@@ -40,6 +42,9 @@ class ComedyStructure {
       isTemplate: data['isTemplate'] as bool? ?? true,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
+      reactions: (data['reactions'] as List? ?? [])
+          .map((e) => ReactionData.fromMap(e as Map<String, dynamic>))
+          .toList(),
     );
   }
 
@@ -52,6 +57,7 @@ class ComedyStructure {
       'isTemplate': isTemplate,
       'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : null,
       'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : null,
+      'reactions': reactions.map((r) => r.toMap()).toList(),
     };
 
     // Only include metrics and metadata for templates
@@ -76,6 +82,7 @@ class ComedyStructure {
       isTemplate: false,
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
+      reactions: [],
     );
   }
 
@@ -90,19 +97,20 @@ class ComedyStructure {
     bool? isTemplate,
     DateTime? createdAt,
     DateTime? updatedAt,
+    List<ReactionData>? reactions,
   }) {
     return ComedyStructure(
       id: id ?? this.id,
       title: title ?? this.title,
       description: description ?? this.description,
       timeline: timeline ?? this.timeline,
-      // Only copy metrics and metadata if it's a template
       metrics: (isTemplate ?? this.isTemplate) ? (metrics ?? this.metrics) : {},
       metadata: (isTemplate ?? this.isTemplate) ? (metadata ?? this.metadata) : {},
       authorId: authorId ?? this.authorId,
       isTemplate: isTemplate ?? this.isTemplate,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      reactions: reactions ?? this.reactions,
     );
   }
 }
@@ -156,5 +164,37 @@ class ComedyBeatPoint {
       details: details ?? this.details,
       script: script ?? this.script,
     );
+  }
+}
+
+class ReactionData {
+  final String type; // 'rofl', 'smirk', 'eyeroll', 'vomit'
+  final double timestamp; // Time in video when reaction occurred
+  final String userId;
+  final DateTime createdAt;
+
+  ReactionData({
+    required this.type,
+    required this.timestamp,
+    required this.userId,
+    required this.createdAt,
+  });
+
+  factory ReactionData.fromMap(Map<String, dynamic> map) {
+    return ReactionData(
+      type: map['type'] as String,
+      timestamp: map['timestamp'] as double,
+      userId: map['userId'] as String,
+      createdAt: (map['createdAt'] as Timestamp).toDate(),
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'type': type,
+      'timestamp': timestamp,
+      'userId': userId,
+      'createdAt': Timestamp.fromDate(createdAt),
+    };
   }
 }
