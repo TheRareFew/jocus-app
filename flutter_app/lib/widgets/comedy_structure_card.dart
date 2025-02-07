@@ -48,6 +48,19 @@ class _ComedyStructureCardState extends State<ComedyStructureCard> with SingleTi
     }
   }
 
+  @override
+  void didUpdateWidget(ComedyStructureCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.autoStart != oldWidget.autoStart) {
+      if (widget.autoStart) {
+        _isExpanded = true;
+        _startRealTimeProgress();
+      } else {
+        _stopTimer();
+      }
+    }
+  }
+
   void _toggleTimer() {
     setState(() {
       if (_isTimerRunning) {
@@ -423,11 +436,13 @@ class _ComedyStructureCardState extends State<ComedyStructureCard> with SingleTi
     );
 
     if (widget.overlay) {
-      return Positioned(
-        left: 8,
-        right: 8,
-        bottom: 8,
-        child: card,
+      return ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.7,
+        ),
+        child: SingleChildScrollView(
+          child: card,
+        ),
       );
     }
 

@@ -26,8 +26,8 @@ class _CameraScreenState extends State<CameraScreen> {
   String? _errorMessage;
   List<CameraDescription>? _cameras;
   bool _isEmulator = false;
-  bool _showScript = false;  // Toggle for script visibility
   int _currentBeatIndex = 0;  // Track current beat in timeline
+  bool _isStructureTimerRunning = false;  // Track if structure timer is running
 
   @override
   void initState() {
@@ -62,9 +62,9 @@ class _CameraScreenState extends State<CameraScreen> {
         return;
       }
 
-      // Use the first available back camera
+      // Use the front camera by default
       final camera = _cameras!.firstWhere(
-        (camera) => camera.lensDirection == CameraLensDirection.back,
+        (camera) => camera.lensDirection == CameraLensDirection.front,
         orElse: () => _cameras!.first,
       );
 
@@ -140,7 +140,10 @@ class _CameraScreenState extends State<CameraScreen> {
 
     try {
       final XFile videoFile = await _controller!.stopVideoRecording();
-      setState(() => _isRecording = false);
+      setState(() {
+        _isRecording = false;
+        _isStructureTimerRunning = false;  // Stop the timer when recording stops
+      });
       
       if (!mounted) return;
       Navigator.pop(context, File(videoFile.path));
@@ -150,6 +153,12 @@ class _CameraScreenState extends State<CameraScreen> {
         SnackBar(content: Text('Error stopping recording: $e')),
       );
     }
+  }
+
+  void _toggleStructureTimer() {
+    setState(() {
+      _isStructureTimerRunning = !_isStructureTimerRunning;
+    });
   }
 
   @override
@@ -182,17 +191,6 @@ class _CameraScreenState extends State<CameraScreen> {
             IconButton(
               icon: const Icon(Icons.flip_camera_ios),
               onPressed: !_isRecording ? _toggleCamera : null,
-            ),
-          if (widget.structure != null)
-            IconButton(
-              icon: Icon(
-                _showScript ? Icons.speaker_notes_off : Icons.speaker_notes,
-                color: _showScript ? Colors.blue : Colors.white,
-              ),
-              tooltip: _showScript ? 'Hide Script' : 'Show Script',
-              onPressed: () {
-                setState(() => _showScript = !_showScript);
-              },
             ),
           if (_isRecording)
             IconButton(
@@ -231,78 +229,52 @@ class _CameraScreenState extends State<CameraScreen> {
               left: 16,
               right: 16,
               top: 16,
-              child: ComedyStructureCard(
-                structure: widget.structure!,
-                showEditButton: false,
-                autoStart: _isRecording,  // Only start timer when recording
-                overlay: true,
-                onBeatChange: (index) {
-                  setState(() => _currentBeatIndex = index);
-                },
-              ),
-            ),
-          if (widget.structure != null && _showScript && _currentBeatIndex < widget.structure!.timeline.length)
-            Positioned(
-              left: 16,
-              right: 16,
-              bottom: 100,
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.8),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.white24),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black26,
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.white24,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            widget.structure!.timeline[_currentBeatIndex].type.toUpperCase(),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                        const Spacer(),
-                        Text(
-                          'Beat ${_currentBeatIndex + 1}/${widget.structure!.timeline.length}',
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      widget.structure!.timeline[_currentBeatIndex].script ?? 
-                      widget.structure!.timeline[_currentBeatIndex].description,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        height: 1.4,
+              bottom: 100, // Leave space for the record button
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.black.withOpacity(0.7),
+                          Colors.black.withOpacity(0.3),
+                        ],
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                  ComedyStructureCard(
+                    structure: widget.structure!,
+                    showEditButton: false,
+                    autoStart: _isStructureTimerRunning,
+                    overlay: true,
+                    onBeatChange: (index) {
+                      setState(() => _currentBeatIndex = index);
+                    },
+                  ),
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.black45,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: IconButton(
+                        icon: Icon(
+                          _isStructureTimerRunning ? Icons.timer_off : Icons.timer,
+                          color: _isStructureTimerRunning ? Colors.blue : Colors.white,
+                        ),
+                        tooltip: _isStructureTimerRunning ? 'Stop Timer' : 'Start Timer',
+                        onPressed: () {
+                          _toggleStructureTimer();
+                        },
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           Positioned(
