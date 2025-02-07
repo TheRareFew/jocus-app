@@ -30,7 +30,12 @@ class MyComedyStructuresScreen extends StatelessWidget {
       appBar: AppBar(
         title: Text(selectionMode ? 'Select Comedy Structure' : 'My Comedy Structures'),
         actions: [
-          if (!selectionMode)
+          if (!selectionMode) ...[
+            IconButton(
+              icon: const Icon(Icons.play_circle_outline),
+              onPressed: () => Navigator.pushNamed(context, '/viewer/feed'),
+              tooltip: 'Watch Feed',
+            ),
             IconButton(
               icon: const Icon(Icons.add),
               onPressed: () {
@@ -58,6 +63,7 @@ class MyComedyStructuresScreen extends StatelessWidget {
               },
               tooltip: 'Create New Comedy Structure',
             ),
+          ],
         ],
       ),
       body: StreamBuilder<QuerySnapshot>(

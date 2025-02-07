@@ -4,38 +4,30 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/video.dart';
 import '../models/comedy_structure.dart';
 import '../models/bit.dart';
-import 'openshot_service.dart';
 
 class VideoUploadService {
-  final FirebaseStorage _storage = FirebaseStorage.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final OpenShotService _openshotService = OpenShotService();
+  final FirebaseStorage _storage = FirebaseStorage.instance;
 
-  Future<bool> validateVideo(File video) async {
-    // Get file size in MB
-    final size = await video.length() / (1024 * 1024);
-    if (size > 500) { // 500MB limit
-      throw Exception('Video size exceeds 500MB limit');
+  Future<void> validateVideo(File video) async {
+    final size = await video.length();
+    if (size > 100 * 1024 * 1024) { // 100MB limit
+      throw Exception('Video size exceeds 100MB limit');
     }
-
-    // TODO: Add format validation
-    // TODO: Add duration validation
-    return true;
   }
 
   Future<String> _uploadToFirebaseStorage(File video, String userId) async {
-    final timestamp = DateTime.now().millisecondsSinceEpoch;
-    final videoId = 'video_$timestamp';
-    final storageRef = _storage.ref().child('videos/$userId/$videoId');
-    final uploadTask = storageRef.putFile(
-      video,
-      SettableMetadata(
-        contentType: 'video/mp4',  // Set proper content type
-      ),
-    );
+    final fileName = 'video_${DateTime.now().millisecondsSinceEpoch}';
+    final ref = _storage.ref().child('videos/$userId/$fileName');
     
+    final uploadTask = ref.putFile(video);
     final snapshot = await uploadTask;
-    return await snapshot.ref.getDownloadURL();
+    
+    if (snapshot.state == TaskState.success) {
+      return await ref.getDownloadURL();
+    } else {
+      throw Exception('Failed to upload video to Firebase Storage');
+    }
   }
 
   Future<(Video, Bit)> uploadVideo({
@@ -46,44 +38,10 @@ class VideoUploadService {
     ComedyStructure? comedyStructure,
   }) async {
     try {
-      // Validate video
       await validateVideo(video);
 
-      // Check OpenShot availability
-      final isOpenShotAvailable = await _openshotService.isAvailable();
-      String videoUrl;
-      bool isProcessed = false;
-
-      if (isOpenShotAvailable) {
-        // Process with OpenShot
-        final projectId = await _openshotService.uploadVideoForEditing(video);
-        
-        // Monitor processing status
-        bool isComplete = false;
-        while (!isComplete) {
-          final status = await _openshotService.getEditingStatus(projectId);
-          if (status['status'] == 'completed') {
-            isComplete = true;
-          } else if (status['status'] == 'failed') {
-            throw Exception('Video processing failed');
-          }
-          await Future.delayed(const Duration(seconds: 5));
-        }
-
-        // Download processed video
-        final processedVideoPath = await _openshotService.downloadProcessedVideo(projectId);
-        final processedVideo = File(processedVideoPath);
-        
-        // Upload processed video to Firebase
-        videoUrl = await _uploadToFirebaseStorage(processedVideo, userId);
-        isProcessed = true;
-        
-        // Cleanup temp file
-        await processedVideo.delete();
-      } else {
-        // Upload raw video to Firebase
-        videoUrl = await _uploadToFirebaseStorage(video, userId);
-      }
+      // Upload video to Firebase Storage
+      final videoUrl = await _uploadToFirebaseStorage(video, userId);
 
       // Start a batch write
       final batch = _firestore.batch();
@@ -96,8 +54,7 @@ class VideoUploadService {
         'userId': userId,
         'storageUrl': videoUrl,
         'uploadDate': Timestamp.now(),
-        'status': VideoStatus.ready.toString().split('.').last,
-        'isProcessed': isProcessed,
+        'status': 'ready', // TODO: Add VideoStatus enum
         'duration': 0, // TODO: Add duration calculation
       });
 
@@ -112,7 +69,6 @@ class VideoUploadService {
         comedyStructureId: comedyStructure?.id,
         createdAt: DateTime.now(),
         metadata: {
-          'isProcessed': isProcessed,
           'duration': 0, // TODO: Add duration calculation
         },
       );

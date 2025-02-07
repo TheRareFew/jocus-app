@@ -17,10 +17,8 @@ service firebase.storage {
     
     // Videos folder rules
     match /videos/{userId}/{videoId} {
-      // Allow read if the video status is 'ready' in Firestore
-      allow read: if 
-        request.auth != null ||
-        firestore.get(/databases/(default)/documents/videos/$(videoId)).data.status == 'ready';
+      // Allow public read access for videos
+      allow read: if true;
       
       // Allow upload if user is authenticated and owns the video
       allow create: if

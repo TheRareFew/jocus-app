@@ -50,6 +50,7 @@ dependencies:
   path_provider: ^2.1.5
   timeline_tile: ^2.0.0  # For comedy bit timeline visualization
   fl_chart: ^0.65.0  # For analytics visualization
+  video_player: ^2.8.1  # For video playback in feed
 
 dev_dependencies:
   flutter_test:

@@ -46,7 +46,7 @@ class Video {
       duration: data['duration'] ?? 0,
       uploadDate: (data['uploadDate'] as Timestamp).toDate(),
       status: VideoStatus.values.firstWhere(
-        (e) => e.toString() == 'VideoStatus.${data['status']}',
+        (e) => e.toString().split('.').last == data['status'],
         orElse: () => VideoStatus.initial,
       ),
       isProcessed: data['isProcessed'] ?? false,
