@@ -5,8 +5,12 @@ import '../../screens/auth/signup_screen.dart';
 import '../../screens/creator/dashboard_screen.dart';
 import '../../screens/creator/analytics_screen.dart';
 import '../../screens/creator/trending_formats_screen.dart';
+import '../../screens/creator/my_comedy_structures_screen.dart';
 import '../../screens/viewer/feed_screen.dart';
 import '../../screens/onboarding/onboarding_screen.dart';
+import '../../screens/creator/camera_screen.dart';
+import '../../screens/creator/edit_comedy_structure_screen.dart';
+import '../../models/comedy_structure.dart';
 
 class Routes {
   static const String login = '/login';
@@ -22,6 +26,9 @@ class Routes {
   static const String dashboard = '/creator/dashboard';
   static const String analytics = '/creator/analytics';
   static const String trendingFormats = '/creator/trending-formats';
+  static const String myComedyStructures = '/creator/my-comedy-structures';
+  static const String editComedyStructure = '/creator/edit-comedy-structure';
+  static const String camera = '/creator/camera';
   
   // Viewer sub-routes
   static const String feed = '/viewer/feed';
@@ -51,6 +58,29 @@ Route<dynamic> generateRoute(RouteSettings settings) {
       return MaterialPageRoute(builder: (_) => const AnalyticsScreen());
     case Routes.trendingFormats:
       return MaterialPageRoute(builder: (_) => const TrendingFormatsScreen());
+    case Routes.myComedyStructures:
+      final args = settings.arguments as Map<String, dynamic>?;
+      return MaterialPageRoute(
+        builder: (_) => MyComedyStructuresScreen(
+          selectionMode: args?['selectionMode'] ?? false,
+        ),
+      );
+    case Routes.editComedyStructure:
+      final args = settings.arguments as Map<String, dynamic>;
+      return MaterialPageRoute(
+        builder: (_) => EditComedyStructureScreen(
+          structure: args['structure'] as ComedyStructure,
+          userId: args['userId'] as String,
+          onSave: args['onSave'] as VoidCallback?,
+        ),
+      );
+    case Routes.camera:
+      final args = settings.arguments as Map<String, dynamic>?;
+      return MaterialPageRoute(
+        builder: (_) => CameraScreen(
+          structure: args?['structure'],
+        ),
+      );
     case Routes.feed:
       return MaterialPageRoute(builder: (_) => const FeedScreen());
     default:

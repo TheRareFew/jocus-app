@@ -5,11 +5,20 @@ import 'package:file_picker/file_picker.dart';
 import '../../providers/video_upload_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../models/video.dart';
+import '../../models/comedy_structure.dart';
 import 'camera_screen.dart';
+import 'my_comedy_structures_screen.dart';
 import '../../core/routes/routes.dart';
 
-class StudioScreen extends StatelessWidget {
+class StudioScreen extends StatefulWidget {
   const StudioScreen({Key? key}) : super(key: key);
+
+  @override
+  State<StudioScreen> createState() => _StudioScreenState();
+}
+
+class _StudioScreenState extends State<StudioScreen> {
+  ComedyStructure? selectedStructure;
 
   Future<void> _pickAndUploadVideo(BuildContext context) async {
     try {
@@ -48,12 +57,11 @@ class StudioScreen extends StatelessWidget {
   }
 
   Future<void> _startRecording(BuildContext context) async {
-    final File? recordedVideo = await Navigator.push<File>(
+    final File? recordedVideo = await Navigator.pushNamed(
       context,
-      MaterialPageRoute(
-        builder: (context) => const CameraScreen(),
-      ),
-    );
+      Routes.camera,
+      arguments: {'structure': selectedStructure},
+    ) as File?;
 
     if (recordedVideo != null) {
       await _processVideoUpload(context, recordedVideo);
@@ -83,6 +91,35 @@ class StudioScreen extends StatelessWidget {
                 if (provider.state == UploadState.initial) ...[
                   const Icon(Icons.cloud_upload, size: 64),
                   const SizedBox(height: 16),
+                  // Comedy Structure Selection
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 32),
+                    child: Card(
+                      child: ListTile(
+                        title: Text(
+                          selectedStructure?.title ?? 'Select Comedy Structure',
+                          style: TextStyle(
+                            color: selectedStructure != null 
+                              ? Theme.of(context).textTheme.bodyLarge?.color 
+                              : Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.5),
+                          ),
+                        ),
+                        trailing: const Icon(Icons.arrow_forward_ios),
+                        onTap: () async {
+                          final structure = await Navigator.pushNamed(
+                            context,
+                            Routes.myComedyStructures,
+                            arguments: {'selectionMode': true},
+                          ) as ComedyStructure?;
+                          
+                          if (structure != null) {
+                            setState(() => selectedStructure = structure);
+                          }
+                        },
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 32),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -96,11 +133,12 @@ class StudioScreen extends StatelessWidget {
                       ),
                       const SizedBox(width: 16),
                       ElevatedButton.icon(
-                        onPressed: () => _startRecording(context),
+                        onPressed: selectedStructure != null ? () => _startRecording(context) : null,
                         icon: const Icon(Icons.videocam),
                         label: const Text('Record Video'),
                         style: ElevatedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                          backgroundColor: selectedStructure != null ? Colors.blue : null,
                         ),
                       ),
                     ],
@@ -231,4 +269,4 @@ class _VideoDetailsDialogState extends State<_VideoDetailsDialog> {
       ],
     );
   }
-} 
+}

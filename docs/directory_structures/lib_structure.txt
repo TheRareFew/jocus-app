@@ -4,12 +4,25 @@ Folder map of c:\gauntlet\JOCUS\jocus-app\flutter_app\lib
 ├── core/
 │   ├── routes/
 │   │   └── routes.dart
-│   └── theme/
+│   ├── theme/
+│   └── widgets/
+│       ├── buttons/
+│       │   ├── primary_button.dart
+│       │   └── secondary_button.dart
+│       ├── indicators/
+│       │   └── loading_indicator.dart
+│       ├── inputs/
+│       │   └── custom_text_field.dart
+│       ├── navigation/
+│       │   └── bottom_nav_bar.dart
+│       └── widgets.dart
 ├── models/
+│   ├── comedy_structure.dart
 │   ├── user.dart
 │   └── video.dart
 ├── providers/
 │   ├── auth_provider.dart
+│   ├── navigation_provider.dart
 │   └── video_upload_provider.dart
 ├── screens/
 │   ├── auth/
@@ -18,18 +31,23 @@ Folder map of c:\gauntlet\JOCUS\jocus-app\flutter_app\lib
 │   ├── creator/
 │   │   ├── analytics_screen.dart
 │   │   ├── camera_screen.dart
+│   │   ├── creator_home_screen.dart
 │   │   ├── dashboard_screen.dart
+│   │   ├── edit_comedy_structure_screen.dart
+│   │   ├── my_comedy_structures_screen.dart
 │   │   ├── studio_screen.dart
 │   │   └── trending_formats_screen.dart
 │   ├── onboarding/
 │   │   └── onboarding_screen.dart
 │   └── viewer/
-│       └── feed_screen.dart
+│       ├── feed_screen.dart
+│       └── viewer_home_screen.dart
 ├── services/
 │   ├── firebase_service.dart
 │   ├── openshot_service.dart
 │   └── video_upload_service.dart
 ├── utilities/
-│   ├── constants.dart
-│   └── routes.dart
+│   └── constants.dart
+├── widgets/
+│   └── comedy_structure_card.dart
 └── main.dart

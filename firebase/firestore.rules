@@ -12,6 +12,20 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
+    // Helper function to validate comedy structure data
+    function isValidComedyStructure(data) {
+      let validTypes = ['setup', 'pause', 'punchline', 'callback'];
+      let hasValidBeat = data.timeline[0].type in validTypes;
+      
+      return data.keys().hasAll(['title', 'description', 'timeline'])
+        && data.title is string
+        && data.description is string
+        && data.timeline is list
+        && data.timeline.size() > 0
+        && data.timeline.size() <= 20
+        && hasValidBeat;
+    }
+
     // Videos collection rules
     match /videos/{videoId} {
       allow read: if true;  // Anyone can read videos
@@ -20,58 +34,23 @@ service cloud.firestore {
       allow update, delete: if isOwner(resource.data.userId);
     }
 
-    // Comedy structures collection rules
+    // Comedy structures collection (templates)
     match /comedy_structures/{structureId} {
       allow read: if true;  // Public read access
-      allow create, update: if isAuthenticated() 
-        && request.resource.data.keys().hasAll([
-          'title', 'description', 'timeline', 'metrics', 'metadata'
-        ]) 
-        && request.resource.data.title is string
-        && request.resource.data.description is string
-        && request.resource.data.timeline is list
-        && request.resource.data.metrics is map
-        && request.resource.data.metadata is map
-        
-        // Validate timeline structure
-        && request.resource.data.timeline.size() > 0
-        && request.resource.data.timeline.size() <= 20
-        && request.resource.data.timeline.all(beat => 
-          beat.keys().hasAll(['description', 'durationSeconds', 'type'])
-          && beat.description is string
-          && beat.durationSeconds is number
-          && beat.durationSeconds > 0
-          && beat.type in ['setup', 'pause', 'punchline', 'callback']
-        )
-        
-        // Validate metrics
-        && request.resource.data.metrics.keys().hasAll([
-          'laughDensity',
-          'audienceScore'
-        ])
-        && request.resource.data.metrics.laughDensity is number
-        && request.resource.data.metrics.laughDensity >= 0
-        && request.resource.data.metrics.audienceScore is number
-        && request.resource.data.metrics.audienceScore >= 0
-        && request.resource.data.metrics.audienceScore <= 10
-        
-        // Validate metadata
-        && request.resource.data.metadata.keys().hasAll([
-          'subject',
-          'comedyStyle',
-          'duration',
-          'popularity',
-          'tags'
-        ])
-        && request.resource.data.metadata.subject is string
-        && request.resource.data.metadata.comedyStyle is string
-        && request.resource.data.metadata.duration is number
-        && request.resource.data.metadata.duration > 0
-        && request.resource.data.metadata.popularity is number
-        && request.resource.data.metadata.popularity >= 0
-        && request.resource.data.metadata.tags is list;
-      
+      allow create, update: if isAuthenticated()
+        && isValidComedyStructure(request.resource.data)
+        && request.resource.data.isTemplate == true;  // Only allow templates here
       allow delete: if isAuthenticated();
+    }
+
+    // User's personal comedy structures
+    match /users/{userId}/comedy_structures/{structureId} {
+      allow read: if isOwner(userId);  // Only owner can read their structures
+      allow create, update: if isOwner(userId)
+        && isValidComedyStructure(request.resource.data)
+        && request.resource.data.authorId == userId
+        && request.resource.data.isTemplate == false;  // Must be personal structure
+      allow delete: if isOwner(userId);
     }
 
     // Default deny all other collections
