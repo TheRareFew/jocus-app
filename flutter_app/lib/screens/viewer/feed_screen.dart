@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:video_player/video_player.dart';
+import 'package:chewie/chewie.dart';
 import 'package:provider/provider.dart';
 import 'package:jocus_app/providers/auth_provider.dart';
 import 'package:jocus_app/services/reaction_service.dart';
@@ -22,11 +24,27 @@ class _FeedScreenState extends State<FeedScreen> {
   bool _isLoading = false;
   DocumentSnapshot? _lastDocument;
   bool _hasMore = true;
+  int _currentPage = 0;
 
   @override
   void initState() {
     super.initState();
     _loadMoreVideos();
+    _pageController.addListener(_onPageChanged);
+  }
+
+  void _onPageChanged() {
+    final page = _pageController.page?.round() ?? 0;
+    if (page != _currentPage) {
+      setState(() {
+        _currentPage = page;
+      });
+
+      // Load more videos if we're near the end
+      if (page >= _videos.length - 2 && !_isLoading && _hasMore) {
+        _loadMoreVideos();
+      }
+    }
   }
 
   Future<void> _loadMoreVideos() async {
@@ -60,7 +78,7 @@ class _FeedScreenState extends State<FeedScreen> {
             // Find the associated bit
             final bitQuery = await FirebaseFirestore.instance
                 .collection('bits')
-                .where('videoUrl', isEqualTo: videoData['storageUrl'])
+                .where('storageUrl', isEqualTo: videoData['storageUrl'])
                 .limit(1)
                 .get();
             
@@ -142,9 +160,15 @@ class _FeedScreenState extends State<FeedScreen> {
                 }
 
                 final video = _videos[index];
+                final videoData = video.data() as Map<String, dynamic>;
                 final bitId = _videoBitIds[video.id];
+                
+                // Prefer HLS URL if available, fall back to direct storage URL
+                final videoUrl = videoData['hlsUrl'] as String? ?? videoData['storageUrl'] as String;
+                debugPrint('Using video URL for ${video.id}: $videoUrl');
+                
                 return VideoItem(
-                  videoUrl: video['storageUrl'],
+                  videoUrl: videoUrl,
                   videoId: video.id,
                   bitId: bitId ?? '',
                   reactionService: _reactionService,
@@ -173,31 +197,264 @@ class VideoItem extends StatefulWidget {
   State<VideoItem> createState() => _VideoItemState();
 }
 
-class _VideoItemState extends State<VideoItem> {
-  late VideoPlayerController _controller;
+class _VideoItemState extends State<VideoItem> with WidgetsBindingObserver {
+  VideoPlayerController? _videoController;
+  ChewieController? _chewieController;
+  bool _isPlaying = false;
+  bool _isInitializing = false;
+  bool _hasError = false;
+  String? _errorMessage;
   Map<String, int> _reactionCounts = {
     'rofl': 0,
     'smirk': 0,
     'eyeroll': 0,
     'vomit': 0,
   };
+  Map<String, bool> _userReactions = {
+    'rofl': false,
+    'smirk': false,
+    'eyeroll': false,
+    'vomit': false,
+  };
+  
+  static final Map<String, ChewieController> _cachedControllers = {};
+  static const int _maxCachedVideos = 3;
 
   @override
   void initState() {
     super.initState();
-    _controller = VideoPlayerController.network(widget.videoUrl)
-      ..initialize().then((_) {
-        setState(() {});
-        _controller.play();
-        _controller.setLooping(true);
-      });
+    WidgetsBinding.instance.addObserver(this);
+    debugPrint('VideoItem initState for video ${widget.videoId}');
+    _initializePlayer();
     _loadReactionCounts();
+    _loadUserReactions();
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    WidgetsBinding.instance.removeObserver(this);
+    _disposeController();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.paused) {
+      _videoController?.pause();
+    } else if (state == AppLifecycleState.resumed) {
+      _videoController?.play();
+    }
+  }
+
+  Future<void> _initializePlayer() async {
+    if (_isInitializing) return;
+    _isInitializing = true;
+    
+    String videoUrl = widget.videoUrl;
+    debugPrint('Initializing player for video ${widget.videoId} with URL: $videoUrl');
+    
+    try {
+    // Listen for video status updates
+    final videoDoc = FirebaseFirestore.instance
+        .collection('videos')
+        .doc(widget.videoId);
+        
+    final unsubscribe = videoDoc.snapshots().listen((snapshot) {
+        if (!snapshot.exists) {
+          debugPrint('Video document does not exist for ${widget.videoId}');
+          return;
+        }
+      
+      final data = snapshot.data()!;
+      final status = VideoStatus.values.firstWhere(
+        (e) => e.toString().split('.').last == data['status'],
+        orElse: () => VideoStatus.initial,
+      );
+      final hlsUrl = data['hlsUrl'] as String?;
+        
+        debugPrint('Video ${widget.videoId} status: $status, HLS URL: $hlsUrl');
+      
+      if (status == VideoStatus.ready && hlsUrl != null && mounted) {
+          debugPrint('Switching to HLS URL for video ${widget.videoId}');
+          _disposeController();
+        _initializeWithUrl(hlsUrl);
+      }
+    });
+    
+    // Initial setup with direct URL
+    await _initializeWithUrl(videoUrl);
+    } catch (e) {
+      debugPrint('Error initializing player for video ${widget.videoId}: $e');
+    } finally {
+      _isInitializing = false;
+    }
+  }
+  
+  Future<void> _initializeWithUrl(String url) async {
+    debugPrint('Initializing URL: $url');
+    
+    try {
+      setState(() {
+        _hasError = false;
+        _errorMessage = null;
+      });
+
+      // Check if we already have a cached controller for this URL
+      if (_cachedControllers.containsKey(url)) {
+        debugPrint('Using cached controller for URL: $url');
+        final cachedController = _cachedControllers[url];
+        
+        // Validate cached controller
+        if (cachedController != null && 
+            cachedController.videoPlayerController.value.isInitialized &&
+            !cachedController.videoPlayerController.value.hasError) {
+          if (mounted) {
+            // Reset the video position and ensure it's ready to play
+            await cachedController.videoPlayerController.seekTo(Duration.zero);
+            await cachedController.videoPlayerController.setVolume(1.0);
+            await cachedController.videoPlayerController.play();
+            
+            setState(() {
+              _chewieController = cachedController;
+              _videoController = cachedController.videoPlayerController;
+              _isPlaying = true;
+            });
+          }
+          return;
+        } else {
+          // Remove invalid cached controller
+          debugPrint('Removing invalid cached controller for URL: $url');
+          _cachedControllers[url]?.dispose();
+          _cachedControllers.remove(url);
+        }
+      }
+
+      debugPrint('Creating new controller for URL: $url');
+      
+      // Use master playlist for HLS streams
+      final Uri videoUri = Uri.parse(url);
+      // Keep master playlist for HLS streams to ensure proper audio track selection
+      final String modifiedUrl = url;
+      
+      debugPrint('Using URL: $modifiedUrl');
+      
+      // Create and initialize video player controller
+      final videoController = VideoPlayerController.networkUrl(
+        Uri.parse(modifiedUrl),
+        videoPlayerOptions: VideoPlayerOptions(
+          mixWithOthers: false,
+          allowBackgroundPlayback: false,
+        ),
+        httpHeaders: {
+          'Accept': '*/*',  // Accept any content type
+          'Range': 'bytes=0-',  // Request full content
+        },
+        formatHint: VideoFormat.hls,
+      );
+
+      // Initialize with volume at max
+      videoController.setVolume(1.0);
+      
+      debugPrint('Starting video initialization...');
+      await videoController.initialize();
+      
+      // Debug audio settings
+      debugPrint('Video initialized with following properties:');
+      debugPrint('Video error: ${videoController.value.hasError ? videoController.value.errorDescription : "none"}');
+      debugPrint('Volume: ${videoController.value.volume}');
+      debugPrint('Playing: ${videoController.value.isPlaying}');
+      debugPrint('Duration: ${videoController.value.duration}');
+      debugPrint('Size: ${videoController.value.size}');
+      
+      // Double check volume is set
+      await videoController.setVolume(1.0);
+      final volumeAfterSet = videoController.value.volume;
+      debugPrint('Volume after explicit set: $volumeAfterSet');
+      
+      if (!mounted) {
+        debugPrint('Widget not mounted after initialization, disposing controller');
+        videoController.dispose();
+        return;
+      }
+
+      // Create chewie controller with debug listener
+      final chewieController = ChewieController(
+        videoPlayerController: videoController,
+        autoPlay: true,
+        looping: true,
+        aspectRatio: 9/16,
+        showControls: false,  // Temporarily enable controls for debugging
+        allowPlaybackSpeedChanging: false,
+        allowFullScreen: false,
+        deviceOrientationsAfterFullScreen: [DeviceOrientation.portraitUp],
+        deviceOrientationsOnEnterFullScreen: [DeviceOrientation.portraitUp],
+        allowedScreenSleep: false,
+        allowMuting: false,
+      );
+      
+      // Add listener for video/audio state changes
+      videoController.addListener(() {
+        if (!mounted) return;
+        final value = videoController.value;
+        if (value.hasError) {
+          debugPrint('Video controller error: ${value.errorDescription}');
+        }
+        // Log any changes to playback state
+        debugPrint('Playback state update - '
+            'volume: ${value.volume}, '
+            'playing: ${value.isPlaying}, '
+            'position: ${value.position}, '
+            'buffered: ${value.buffered}');
+      });
+
+      // Cache the controller
+      _cachedControllers[url] = chewieController;
+      debugPrint('Controller cached for URL: $url');
+      
+      // Ensure video starts playing
+      await videoController.play();
+      
+      // Remove oldest cached controller if we exceed max cache size
+      if (_cachedControllers.length > _maxCachedVideos) {
+        final oldestUrl = _cachedControllers.keys.first;
+        debugPrint('Removing oldest cached controller for URL: $oldestUrl');
+        _cachedControllers[oldestUrl]?.dispose();
+        _cachedControllers.remove(oldestUrl);
+      }
+
+      if (mounted) {
+        setState(() {
+          _chewieController = chewieController;
+          _videoController = videoController;
+          _isPlaying = true;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error initializing URL $url: $e');
+      if (mounted) {
+        setState(() {
+          _hasError = true;
+          _errorMessage = 'Failed to load video';
+          _isPlaying = false;
+        });
+      }
+    }
+  }
+
+  void _disposeController() {
+    final chewieController = _chewieController;
+    final videoController = _videoController;
+    
+    if (chewieController != null && !_cachedControllers.containsValue(chewieController)) {
+      chewieController.dispose();
+    }
+    if (videoController != null && !_cachedControllers.values.any((c) => c.videoPlayerController == videoController)) {
+      videoController.dispose();
+    }
+    
+    _chewieController = null;
+    _videoController = null;
   }
 
   Future<void> _loadReactionCounts() async {
@@ -216,6 +473,31 @@ class _VideoItemState extends State<VideoItem> {
     }
   }
 
+  Future<void> _loadUserReactions() async {
+    final userId = context.read<AuthProvider>().currentUser?.uid;
+    if (userId == null || widget.bitId.isEmpty) return;
+
+    try {
+      final reactions = await FirebaseFirestore.instance
+          .collection('bits')
+          .doc(widget.bitId)
+          .collection('reactions')
+          .where('userId', isEqualTo: userId)
+          .get();
+
+      if (mounted) {
+        setState(() {
+          for (final reaction in reactions.docs) {
+            final type = reaction.data()['type'] as String;
+            _userReactions[type] = true;
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading user reactions: $e');
+    }
+  }
+
   Future<void> _handleReaction(String type) async {
     final userId = context.read<AuthProvider>().currentUser?.uid;
     if (userId == null) return;
@@ -225,13 +507,22 @@ class _VideoItemState extends State<VideoItem> {
     }
 
     try {
+      final videoController = _videoController;
+      if (videoController == null) return;
+      
       await widget.reactionService.addReaction(
         bitId: widget.bitId,
         userId: userId,
         reactionType: type,
-        timestamp: _controller.value.position.inSeconds.toDouble(),
+        timestamp: videoController.value.position.inSeconds.toDouble(),
       );
-      // Refresh counts after adding reaction
+
+      // Update local state
+      setState(() {
+        _userReactions[type] = !_userReactions[type]!;
+      });
+
+      // Refresh counts after adding/removing reaction
       await _loadReactionCounts();
     } catch (e) {
       debugPrint('Error adding reaction: $e');
@@ -240,57 +531,92 @@ class _VideoItemState extends State<VideoItem> {
 
   @override
   Widget build(BuildContext context) {
-    if (_controller.value.isInitialized) {
-      return Stack(
-        fit: StackFit.expand,
-        children: [
-          Transform.rotate(
-            angle: 90 * 3.14159 / 180, // 90 degrees in radians
-            child: AspectRatio(
-              aspectRatio: _controller.value.aspectRatio,
-              child: VideoPlayer(_controller),
+    final chewieController = _chewieController;
+    
+    if (_hasError) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.error_outline, size: 48, color: Colors.red),
+            const SizedBox(height: 16),
+            Text(_errorMessage ?? 'Error loading video'),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () {
+                setState(() {
+                  _hasError = false;
+                  _errorMessage = null;
+                });
+                _initializePlayer();
+              },
+              child: const Text('Retry'),
             ),
-          ),
-          Positioned(
-            right: 16,
-            bottom: 100,
+          ],
+        ),
+      );
+    }
+    
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        if (chewieController != null)
+          Chewie(
+            controller: chewieController,
+          )
+        else
+          const Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                _ReactionButton(
-                  emoji: '🤣',
-                  label: 'ROFL',
-                  count: _reactionCounts['rofl'] ?? 0,
-                  onTap: () => _handleReaction('rofl'),
-                ),
-                const SizedBox(height: 16),
-                _ReactionButton(
-                  emoji: '😏',
-                  label: 'Smirk',
-                  count: _reactionCounts['smirk'] ?? 0,
-                  onTap: () => _handleReaction('smirk'),
-                ),
-                const SizedBox(height: 16),
-                _ReactionButton(
-                  emoji: '🙄',
-                  label: 'Eye Roll',
-                  count: _reactionCounts['eyeroll'] ?? 0,
-                  onTap: () => _handleReaction('eyeroll'),
-                ),
-                const SizedBox(height: 16),
-                _ReactionButton(
-                  emoji: '🤮',
-                  label: 'Vomit',
-                  count: _reactionCounts['vomit'] ?? 0,
-                  onTap: () => _handleReaction('vomit'),
-                ),
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Loading video...'),
               ],
             ),
+        ),
+        Positioned(
+          right: 16,
+          bottom: 100,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _ReactionButton(
+                emoji: '🤣',
+                label: 'ROFL',
+                count: _reactionCounts['rofl'] ?? 0,
+                onTap: () => _handleReaction('rofl'),
+                isActive: _userReactions['rofl'] ?? false,
+              ),
+              const SizedBox(height: 16),
+              _ReactionButton(
+                emoji: '😏',
+                label: 'Smirk',
+                count: _reactionCounts['smirk'] ?? 0,
+                onTap: () => _handleReaction('smirk'),
+                isActive: _userReactions['smirk'] ?? false,
+              ),
+              const SizedBox(height: 16),
+              _ReactionButton(
+                emoji: '🙄',
+                label: 'Eye Roll',
+                count: _reactionCounts['eyeroll'] ?? 0,
+                onTap: () => _handleReaction('eyeroll'),
+                isActive: _userReactions['eyeroll'] ?? false,
+              ),
+              const SizedBox(height: 16),
+              _ReactionButton(
+                emoji: '🤮',
+                label: 'Vomit',
+                count: _reactionCounts['vomit'] ?? 0,
+                onTap: () => _handleReaction('vomit'),
+                isActive: _userReactions['vomit'] ?? false,
+              ),
+            ],
           ),
-        ],
-      );
-    }
-    return const Center(child: CircularProgressIndicator());
+        ),
+      ],
+    );
   }
 }
 
@@ -299,6 +625,7 @@ class _ReactionButton extends StatelessWidget {
   final String label;
   final int count;
   final VoidCallback onTap;
+  final bool isActive;
 
   const _ReactionButton({
     Key? key,
@@ -306,6 +633,7 @@ class _ReactionButton extends StatelessWidget {
     required this.label,
     required this.count,
     required this.onTap,
+    required this.isActive,
   }) : super(key: key);
 
   @override
@@ -318,8 +646,13 @@ class _ReactionButton extends StatelessWidget {
             width: 50,
             height: 50,
             decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.3),
+              color: isActive 
+                ? Colors.white.withOpacity(0.3)
+                : Colors.black.withOpacity(0.3),
               shape: BoxShape.circle,
+              border: isActive
+                ? Border.all(color: Colors.white, width: 2)
+                : null,
             ),
             child: Center(
               child: Text(
@@ -332,9 +665,10 @@ class _ReactionButton extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           '$label ($count)',
-          style: const TextStyle(
-            color: Colors.white,
+          style: TextStyle(
+            color: isActive ? Colors.white : Colors.white.withOpacity(0.7),
             fontSize: 12,
+            fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
           ),
         ),
       ],

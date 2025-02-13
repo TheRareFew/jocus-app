@@ -63,7 +63,7 @@ class VideoUploadProvider with ChangeNotifier {
 
       _setState(UploadState.uploadingToOpenShot);
       final (uploadedVideo, bit) = await _uploadService.uploadVideo(
-        video: video,
+        videoFile: video,
         userId: userId,
         title: title,
         description: description,

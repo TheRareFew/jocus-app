@@ -7,10 +7,10 @@ class ComedyStructure {
   final List<ComedyBeatPoint> timeline;
   final Map<String, dynamic> metrics;
   final Map<String, dynamic> metadata;
-  final String? authorId;  // ID of the user who created/saved this structure
+  final String authorId;  // ID of the user who created/saved this structure
   final bool isTemplate;  // Whether this is a template from trending formats
-  final DateTime? createdAt;
-  final DateTime? updatedAt;
+  final DateTime createdAt;
+  final DateTime updatedAt;
   final List<ReactionData> reactions;
 
   ComedyStructure({
@@ -20,10 +20,10 @@ class ComedyStructure {
     required this.timeline,
     required this.metrics,
     required this.metadata,
-    this.authorId,
-    this.isTemplate = true,
-    this.createdAt,
-    this.updatedAt,
+    required this.authorId,
+    this.isTemplate = false,
+    required this.createdAt,
+    required this.updatedAt,
     this.reactions = const [],
   });
 
@@ -38,10 +38,10 @@ class ComedyStructure {
           .toList(),
       metrics: data['metrics'] as Map<String, dynamic>? ?? {},
       metadata: data['metadata'] as Map<String, dynamic>? ?? {},
-      authorId: data['authorId'] as String?,
-      isTemplate: data['isTemplate'] as bool? ?? true,
-      createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
-      updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
+      authorId: data['authorId'] as String? ?? '',
+      isTemplate: data['isTemplate'] as bool? ?? false,
+      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      updatedAt: (data['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       reactions: (data['reactions'] as List? ?? [])
           .map((e) => ReactionData.fromMap(e as Map<String, dynamic>))
           .toList(),
@@ -49,24 +49,18 @@ class ComedyStructure {
   }
 
   Map<String, dynamic> toMap() {
-    final map = {
+    return {
       'title': title,
       'description': description,
       'timeline': timeline.map((beat) => beat.toMap()).toList(),
       'authorId': authorId,
       'isTemplate': isTemplate,
-      'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : null,
-      'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : null,
+      'createdAt': Timestamp.fromDate(createdAt),
+      'updatedAt': Timestamp.fromDate(updatedAt),
       'reactions': reactions.map((r) => r.toMap()).toList(),
+      'metrics': metrics,
+      'metadata': metadata,
     };
-
-    // Only include metrics and metadata for templates
-    if (isTemplate) {
-      map['metrics'] = metrics;
-      map['metadata'] = metadata;
-    }
-
-    return map;
   }
 
   // Create a copy as a personal card
@@ -116,53 +110,58 @@ class ComedyStructure {
 }
 
 class ComedyBeatPoint {
+  final String type;
   final String description;
   final int durationSeconds;
-  final String type; // 'setup', 'pause', 'punchline', 'callback'
-  final Map<String, dynamic>? details;
-  final String? script;  // Optional script for this beat
+  final String script;
+  final bool isGeneratingScript;
 
   ComedyBeatPoint({
+    required this.type,
     required this.description,
     required this.durationSeconds,
-    required this.type,
-    this.details,
-    this.script,
+    this.script = '',
+    this.isGeneratingScript = false,
   });
 
-  factory ComedyBeatPoint.fromMap(Map<String, dynamic> map) {
+  ComedyBeatPoint copyWith({
+    String? type,
+    String? description,
+    int? durationSeconds,
+    String? script,
+    bool? isGeneratingScript,
+  }) {
     return ComedyBeatPoint(
-      description: map['description'] ?? '',
-      durationSeconds: map['durationSeconds'] ?? 0,
-      type: map['type'] ?? 'setup',
-      details: map['details'] as Map<String, dynamic>?,
-      script: map['script'] as String?,
+      type: type ?? this.type,
+      description: description ?? this.description,
+      durationSeconds: durationSeconds ?? this.durationSeconds,
+      script: script ?? this.script,
+      isGeneratingScript: isGeneratingScript ?? this.isGeneratingScript,
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
+      'type': type,
       'description': description,
       'durationSeconds': durationSeconds,
-      'type': type,
-      'details': details,
       'script': script,
     };
   }
 
-  ComedyBeatPoint copyWith({
-    String? description,
-    int? durationSeconds,
-    String? type,
-    Map<String, dynamic>? details,
-    String? script,
-  }) {
+  factory ComedyBeatPoint.fromMap(Map<String, dynamic> map) {
+    final duration = map['durationSeconds'];
+    final int durationSeconds = duration is int 
+        ? duration 
+        : duration is double 
+            ? duration.round() 
+            : 0;
+            
     return ComedyBeatPoint(
-      description: description ?? this.description,
-      durationSeconds: durationSeconds ?? this.durationSeconds,
-      type: type ?? this.type,
-      details: details ?? this.details,
-      script: script ?? this.script,
+      type: map['type'] as String,
+      description: map['description'] as String,
+      durationSeconds: durationSeconds,
+      script: map['script'] as String? ?? '',
     );
   }
 }

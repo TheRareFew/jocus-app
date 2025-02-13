@@ -1,0 +1,30 @@
+Folder map of c:\gauntlet\JOCUS\jocus-app\firebase
+==================================================
+
+├── functions/
+│   ├── __pycache__/
+│   ├── bits/
+│   │   ├── __pycache__/
+│   │   ├── __init__.py
+│   │   ├── comedy_structure.py
+│   │   ├── hls_transcoder.py
+│   │   └── transcripts.py
+│   ├── venv/
+│   ├── .env
+│   ├── .gitignore
+│   ├── main.py
+│   └── requirements.txt
+├── scripts/
+│   ├── add_bit_reactions.py
+│   ├── init_comedy_structures.py
+│   ├── READEME.md
+│   └── requirements.txt
+├── .firebaserc
+├── .gitignore
+├── cors.json
+├── firebase.json
+├── firestore.indexes.json
+├── firestore.rules
+├── firestore.rules.backup
+├── service-account-key.json
+└── storage.rules

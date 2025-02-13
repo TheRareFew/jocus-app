@@ -1,8 +1,5 @@
 rules_version = '2';
 
-// Craft rules based on data in your Firestore database
-// allow write: if firestore.get(
-//    /databases/(default)/documents/users/$(request.auth.uid)).data.isAdmin;
 service firebase.storage {
   match /b/{bucket}/o {
     // Function to check if the file is a video
@@ -20,37 +17,34 @@ service firebase.storage {
       // Allow public read access for videos
       allow read: if true;
       
-      // Allow upload if user is authenticated and owns the video
+      // Allow upload if user is authenticated and owns the folder
       allow create: if
         request.auth != null &&
         request.auth.uid == userId &&
         isVideo() &&
         isValidSize();
         
-      // Allow update/delete if user owns the video
+      // Allow update/delete if user owns the folder
       allow update, delete: if
         request.auth != null &&
         request.auth.uid == userId;
     }
-    
-    // Thumbnails folder rules
-    match /thumbnails/{userId}/{videoId} {
-      // Allow public read for thumbnails
+
+    // HLS folder rules - allow cloud function writes
+    match /hls/{videoId}/{fileName} {
+      // Allow public read access for HLS files
       allow read: if true;
       
-      // Allow create/update if user owns the video
-      allow create, update: if
-        request.auth != null &&
-        request.auth.uid == userId &&
-        request.resource.contentType.matches('image/.*') &&
-        request.resource.size <= 5 * 1024 * 1024;
-        
-      // Allow delete if user owns the video
-      allow delete: if
-        request.auth != null &&
-        request.auth.uid == userId;
+      // Allow cloud functions to write HLS files
+      allow write: if true;
     }
-    
+
+    // Thumbnails folder rules
+    match /thumbnails/{userId}/{fileName} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
     // Default deny all other access
     match /{allPaths=**} {
       allow read, write: if false;

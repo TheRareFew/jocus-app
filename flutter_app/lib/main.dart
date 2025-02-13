@@ -5,6 +5,7 @@ import 'providers/auth_provider.dart';
 import 'providers/video_upload_provider.dart';
 import 'providers/navigation_provider.dart';
 import 'core/routes/routes.dart' as app_routes;
+import 'core/theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,10 +28,9 @@ class MyApp extends StatelessWidget {
         builder: (context, authProvider, _) {
           return MaterialApp(
             title: 'Jocus',
-            theme: ThemeData(
-              primarySwatch: Colors.blue,
-              visualDensity: VisualDensity.adaptivePlatformDensity,
-            ),
+            theme: AppTheme.darkTheme,
+            darkTheme: AppTheme.darkTheme,
+            themeMode: ThemeMode.dark,
             initialRoute: authProvider.isAuthenticated 
               ? app_routes.Routes.creatorHome 
               : app_routes.Routes.login,

@@ -14,16 +14,18 @@ service cloud.firestore {
 
     // Helper function to validate comedy structure data
     function isValidComedyStructure(data) {
-      let validTypes = ['setup', 'pause', 'punchline', 'callback'];
-      let hasValidBeat = data.timeline[0].type in validTypes;
+      // More flexible validation that accepts any string type for beats
+      let hasValidTimeline = data.timeline is list 
+        && data.timeline.size() > 0 
+        && data.timeline.size() <= 50
+        && data.timeline[0].type is string
+        && data.timeline[0].description is string;
       
-      return data.keys().hasAll(['title', 'description', 'timeline'])
+      return data.keys().hasAll(['title', 'description', 'timeline', 'authorId'])
         && data.title is string
         && data.description is string
-        && data.timeline is list
-        && data.timeline.size() > 0
-        && data.timeline.size() <= 20
-        && hasValidBeat;
+        && data.authorId is string
+        && hasValidTimeline;
     }
 
     // Helper function to validate bit data
@@ -46,47 +48,42 @@ service cloud.firestore {
     // Comedy bits collection
     match /bits/{bitId} {
       allow read: if true;  // Anyone can read bits
-      allow create: if isAuthenticated() 
-        && isValidBit(request.resource.data);
-      allow update: if isOwner(resource.data.userId);
-      allow delete: if isOwner(resource.data.userId);
-
-      // Subcollection for reactions
-      match /reactions/{reactionId} {
-        allow read: if true;  // Anyone can read reactions
-        allow create: if isAuthenticated()
-          && request.resource.data.keys().hasAll(['type', 'timestamp', 'userId', 'createdAt'])
-          && request.resource.data.type in ['rofl', 'smirk', 'eyeroll', 'vomit']
-          && request.resource.data.timestamp is float
-          && request.resource.data.timestamp >= 0
-          && request.resource.data.userId == request.auth.uid
-          && request.resource.data.createdAt is timestamp;
-        allow update: if false;  // Reactions cannot be modified
-        allow delete: if isAuthenticated() 
-          && resource.data.userId == request.auth.uid;  // Users can only delete their own reactions
+      allow create: if isAuthenticated();  // Simplified bit creation rule
+      allow update, delete: if isOwner(resource.data.userId);
+      
+      // Analytics subcollection
+      match /analytics/{docId} {
+        allow read: if true;
+        allow create, update: if isAuthenticated();
       }
 
-      // Subcollection for analytics
-      match /analytics/{docId} {
-        allow read: if true;  // Anyone can read analytics
-        allow create: if isAuthenticated() 
-          && request.resource.data.keys().hasAll(['totalReactions', 'reactionCounts', 'viewCount', 'lastUpdated']);
-        allow update: if isAuthenticated();  // Allow updates for analytics
+      // Reactions subcollection
+      match /reactions/{reactionId} {
+        allow read: if true;
+        allow create: if isAuthenticated();
+        allow update, delete: if isOwner(resource.data.userId);
       }
     }
 
-    // Comedy structures collection (templates)
+    // Comedy structures collection
     match /comedy_structures/{structureId} {
-      allow read: if true;  // Public read access
-      allow create, update: if isAuthenticated()
+      allow read: if true;  // Anyone can read structures
+      allow create: if isAuthenticated() 
         && isValidComedyStructure(request.resource.data)
-        && request.resource.data.isTemplate == true;  // Only allow templates here
-      allow delete: if isAuthenticated();
+        && request.resource.data.authorId == request.auth.uid;
+      allow update, delete: if isOwner(resource.data.authorId);
+    }
+
+    // User profiles collection
+    match /users/{userId} {
+      allow read: if true;  // Public profiles
+      allow create, update: if isOwner(userId);
+      allow delete: if false;  // Don't allow profile deletion
     }
 
     // User's personal comedy structures
     match /users/{userId}/comedy_structures/{structureId} {
-      allow read: if isOwner(userId);  // Only owner can read their structures
+      allow read: if isAuthenticated() && request.auth.uid == userId;  // Allow user to read their own structures
       allow create, update: if isOwner(userId)
         && isValidComedyStructure(request.resource.data)
         && request.resource.data.authorId == userId

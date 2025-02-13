@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:jocus_app/models/comedy_structure.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 
 class EditComedyStructureScreen extends StatefulWidget {
   final ComedyStructure structure;
@@ -22,6 +23,7 @@ class _EditComedyStructureScreenState extends State<EditComedyStructureScreen> {
   late TextEditingController _titleController;
   late TextEditingController _descriptionController;
   late List<ComedyBeatPoint> _timeline;
+  final Map<int, TextEditingController> _scriptControllers = {};
   bool _isSaving = false;
   late ComedyStructure _editingStructure;
 
@@ -41,7 +43,15 @@ class _EditComedyStructureScreenState extends State<EditComedyStructureScreen> {
   void dispose() {
     _titleController.dispose();
     _descriptionController.dispose();
+    _scriptControllers.values.forEach((controller) => controller.dispose());
     super.dispose();
+  }
+
+  TextEditingController _getScriptController(int index) {
+    if (!_scriptControllers.containsKey(index)) {
+      _scriptControllers[index] = TextEditingController(text: _timeline[index].script);
+    }
+    return _scriptControllers[index]!;
   }
 
   Future<void> _saveStructure() async {
@@ -88,6 +98,58 @@ class _EditComedyStructureScreenState extends State<EditComedyStructureScreen> {
     } finally {
       if (mounted) {
         setState(() => _isSaving = false);
+      }
+    }
+  }
+
+  Future<void> _generateScript(int index) async {
+    try {
+      setState(() {
+        _timeline[index] = _timeline[index].copyWith(isGeneratingScript: true);
+      });
+
+      // Get previous beats for context
+      final previousBeats = _timeline.sublist(0, index).map((beat) => {
+        'type': beat.type,
+        'description': beat.description,
+      }).toList();
+
+      // Call the Cloud Function
+      final result = await FirebaseFunctions.instance
+          .httpsCallable('generate_beat_script')
+          .call({
+        'beatType': _timeline[index].type,
+        'description': _timeline[index].description,
+        'previousBeats': previousBeats,
+      });
+
+      if (mounted) {
+        final scriptData = result.data;
+        if (scriptData is Map<String, dynamic> && scriptData.containsKey('script')) {
+          setState(() {
+            _timeline[index] = _timeline[index].copyWith(
+              script: scriptData['script'],
+              isGeneratingScript: false,
+            );
+          });
+          // Update the controller text directly
+          _getScriptController(index).text = scriptData['script'];
+        } else if (scriptData is Map<String, dynamic> && scriptData.containsKey('timeline')) {
+          // Handle response from analyze_joke_transcript
+          final timeline = scriptData['timeline'] as List;
+          if (timeline.isNotEmpty) {
+            _timeline = timeline.map((beat) => ComedyBeatPoint.fromMap(beat as Map<String, dynamic>)).toList();
+          }
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _timeline[index] = _timeline[index].copyWith(isGeneratingScript: false);
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error generating script: $e')),
+        );
       }
     }
   }
@@ -163,19 +225,39 @@ class _EditComedyStructureScreenState extends State<EditComedyStructureScreen> {
               },
             ),
             const SizedBox(height: 16),
-            TextFormField(
-              initialValue: beat.script,
-              decoration: const InputDecoration(
-                labelText: 'Script (optional)',
-                border: OutlineInputBorder(),
-                hintText: 'Write your script for this beat...',
-              ),
-              maxLines: 3,
-              onChanged: (value) {
-                setState(() {
-                  _timeline[index] = beat.copyWith(script: value);
-                });
-              },
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    controller: _getScriptController(index),
+                    decoration: const InputDecoration(
+                      labelText: 'Script (optional)',
+                      border: OutlineInputBorder(),
+                      hintText: 'Write your script for this beat...',
+                    ),
+                    maxLines: 3,
+                    onChanged: (value) {
+                      setState(() {
+                        _timeline[index] = beat.copyWith(script: value);
+                      });
+                    },
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: beat.isGeneratingScript 
+                      ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.auto_awesome),
+                  onPressed: beat.isGeneratingScript 
+                      ? null 
+                      : () => _generateScript(index),
+                  tooltip: 'Generate script',
+                ),
+              ],
             ),
           ],
         ),

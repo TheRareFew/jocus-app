@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:provider/provider.dart';
 import 'dart:math' show max;
 import '../../models/bit.dart';
+import '../../providers/auth_provider.dart';
 
 class AnalyticsScreen extends StatefulWidget {
   const AnalyticsScreen({Key? key}) : super(key: key);
@@ -20,10 +22,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   bool isLoading = true;
 
   static const reactionColors = {
-    'rofl': Colors.green,
-    'smirk': Colors.blue,
-    'eyeroll': Colors.orange,
-    'vomit': Colors.red,
+    'rofl': Color(0xFF80DEEA),    // Cyan shade 300 - matches gradient
+    'smirk': Color(0xFF64B5F6),   // Blue shade 400 - matches gradient
+    'eyeroll': Color(0xFFB388FF), // Purple shade 300 - matches gradient
+    'vomit': Color(0xFF5E35B1),   // Deep Purple 600 for stronger contrast
   };
 
   @override
@@ -35,11 +37,41 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   Future<void> _loadData() async {
     setState(() => isLoading = true);
     try {
-      // Load bits
-      final snapshot =
-          await FirebaseFirestore.instance.collection('bits').get();
+      print('Loading bits from Firestore...');
+      
+      // Get current user ID from AuthProvider
+      final userId = context.read<AuthProvider>().currentUser?.uid;
+      if (userId == null) {
+        print('No user logged in');
+        setState(() {
+          isLoading = false;
+          allBits = [];
+        });
+        return;
+      }
+      
+      print('Loading bits for user: $userId');
+      // Load bits filtered by current user
+      final snapshot = await FirebaseFirestore.instance
+          .collection('bits')
+          .where('userId', isEqualTo: userId)
+          .get();
+      
+      print('Loaded ${snapshot.docs.length} bits from Firestore');
 
-      allBits = snapshot.docs.map((doc) => Bit.fromFirestore(doc)).toList();
+      allBits = snapshot.docs.map((doc) {
+        print('Processing bit: ${doc.id}');
+        try {
+          final bit = Bit.fromFirestore(doc);
+          print('Successfully processed bit: ${bit.title}');
+          return bit;
+        } catch (e) {
+          print('Error processing bit ${doc.id}: $e');
+          return null;
+        }
+      }).whereType<Bit>().toList();
+
+      print('Successfully processed ${allBits.length} bits');
 
       // Load overall analytics
       await _loadOverallAnalytics();
@@ -47,15 +79,18 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       setState(() {
         isLoading = false;
       });
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('Error loading data: $e');
+      print('Stack trace: $stackTrace');
       setState(() {
         isLoading = false;
+        allBits = [];
       });
-      print('Error loading data: $e');
     }
   }
 
   Future<void> _loadOverallAnalytics() async {
+    print('Loading overall analytics...');
     int totalViews = 0;
     int totalReactions = 0;
     Map<String, int> reactionCounts = {
@@ -67,28 +102,40 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
     // Get analytics for all bits
     for (final bit in allBits) {
-      final doc = await FirebaseFirestore.instance
-          .collection('bits')
-          .doc(bit.id)
-          .collection('analytics')
-          .doc('stats')
-          .get();
+      print('Loading analytics for bit: ${bit.id}');
+      try {
+        final doc = await FirebaseFirestore.instance
+            .collection('bits')
+            .doc(bit.id)
+            .collection('analytics')
+            .doc('stats')
+            .get();
 
-      if (doc.exists) {
-        final data = doc.data()!;
-        totalViews += (data['viewCount'] as num?)?.toInt() ?? 0;
-        totalReactions += (data['totalReactions'] as num?)?.toInt() ?? 0;
+        print('Got analytics doc for bit ${bit.id}, exists: ${doc.exists}');
+        if (doc.exists) {
+          final data = doc.data()!;
+          print('Analytics data for bit ${bit.id}: $data');
+          totalViews += (data['viewCount'] as num?)?.toInt() ?? 0;
+          totalReactions += (data['totalReactions'] as num?)?.toInt() ?? 0;
 
-        final bitReactionCounts =
-            data['reactionCounts'] as Map<String, dynamic>?;
-        if (bitReactionCounts != null) {
-          for (final type in reactionCounts.keys) {
-            reactionCounts[type] = (reactionCounts[type] ?? 0) +
-                ((bitReactionCounts[type] as num?)?.toInt() ?? 0);
+          final bitReactionCounts = data['reactionCounts'] as Map<String, dynamic>?;
+          if (bitReactionCounts != null) {
+            for (final type in reactionCounts.keys) {
+              reactionCounts[type] = (reactionCounts[type] ?? 0) +
+                  ((bitReactionCounts[type] as num?)?.toInt() ?? 0);
+            }
           }
         }
+      } catch (e, stackTrace) {
+        print('Error loading analytics for bit ${bit.id}: $e');
+        print('Stack trace: $stackTrace');
       }
     }
+
+    print('Final overall analytics:');
+    print('Total views: $totalViews');
+    print('Total reactions: $totalReactions');
+    print('Reaction counts: $reactionCounts');
 
     setState(() {
       overallAnalytics = {
@@ -101,6 +148,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
   Future<void> _loadBitAnalytics(String bitId) async {
     try {
+      print('Loading analytics for bit: $bitId');
       final statsDoc = await FirebaseFirestore.instance
           .collection('bits')
           .doc(bitId)
@@ -108,6 +156,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           .doc('stats')
           .get();
 
+      print('Got analytics doc for bit $bitId, exists: ${statsDoc.exists}');
       if (statsDoc.exists) {
         setState(() {
           selectedBitAnalytics = statsDoc.data();
@@ -122,6 +171,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           .orderBy('timestamp')
           .get();
 
+      print('Got reactions snapshot for bit $bitId, length: ${reactionsSnapshot.docs.length}');
       if (reactionsSnapshot.docs.isNotEmpty) {
         final reactions =
             reactionsSnapshot.docs.map((doc) => doc.data()).toList();
@@ -131,8 +181,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           timeBasedReactions = null;
         });
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
       print('Error loading analytics: $e');
+      print('Stack trace: $stackTrace');
     }
   }
 
@@ -184,28 +235,28 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         PieChartData(
           sections: [
             PieChartSectionData(
-              color: Colors.green,
+              color: reactionColors['rofl']!,
               value: reactionCounts['rofl']!.toDouble(),
               title:
                   '🤣\n${((reactionCounts['rofl']! / total) * 100).toStringAsFixed(1)}%',
               radius: 100,
             ),
             PieChartSectionData(
-              color: Colors.blue,
+              color: reactionColors['smirk']!,
               value: reactionCounts['smirk']!.toDouble(),
               title:
                   '😏\n${((reactionCounts['smirk']! / total) * 100).toStringAsFixed(1)}%',
               radius: 100,
             ),
             PieChartSectionData(
-              color: Colors.orange,
+              color: reactionColors['eyeroll']!,
               value: reactionCounts['eyeroll']!.toDouble(),
               title:
                   '🙄\n${((reactionCounts['eyeroll']! / total) * 100).toStringAsFixed(1)}%',
               radius: 100,
             ),
             PieChartSectionData(
-              color: Colors.red,
+              color: reactionColors['vomit']!,
               value: reactionCounts['vomit']!.toDouble(),
               title:
                   '🤮\n${((reactionCounts['vomit']! / total) * 100).toStringAsFixed(1)}%',
@@ -432,34 +483,45 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Bit selector
-                  DropdownButtonFormField<Bit?>(
-                    value: selectedBit,
-                    decoration: const InputDecoration(
-                      labelText: 'Select a Bit (Optional)',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: [
-                      const DropdownMenuItem(
-                        value: null,
-                        child: Text('All Bits Combined'),
+                  MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: AbsorbPointer(
+                      absorbing: isLoading,
+                      child: DropdownButtonFormField<Bit?>(
+                        value: selectedBit,
+                        decoration: const InputDecoration(
+                          labelText: 'Select a Bit (Optional)',
+                          border: OutlineInputBorder(),
+                        ),
+                        menuMaxHeight: 300,
+                        items: [
+                          const DropdownMenuItem<Bit?>(
+                            value: null,
+                            child: Text('All Bits Combined'),
+                          ),
+                          ...allBits.map((bit) {
+                            print('Adding bit to dropdown: ${bit.title} (${bit.id})');
+                            return DropdownMenuItem<Bit?>(
+                              value: bit,
+                              child: Text(bit.title),
+                            );
+                          }).toList(),
+                        ],
+                        onChanged: isLoading 
+                          ? null 
+                          : (bit) {
+                              print('Selected bit: ${bit?.title ?? 'All Bits Combined'}');
+                              setState(() {
+                                selectedBit = bit;
+                                selectedBitAnalytics = null;
+                                timeBasedReactions = null;
+                              });
+                              if (bit != null) {
+                                _loadBitAnalytics(bit.id);
+                              }
+                            },
                       ),
-                      ...allBits.map((bit) {
-                        return DropdownMenuItem(
-                          value: bit,
-                          child: Text(bit.title),
-                        );
-                      }).toList(),
-                    ],
-                    onChanged: (bit) {
-                      setState(() {
-                        selectedBit = bit;
-                        selectedBitAnalytics = null;
-                        timeBasedReactions = null;
-                      });
-                      if (bit != null) {
-                        _loadBitAnalytics(bit.id);
-                      }
-                    },
+                    ),
                   ),
                   const SizedBox(height: 24),
 

@@ -17,13 +17,17 @@ class VideoUploadService {
   }
 
   Future<String> _uploadToFirebaseStorage(File video, String userId) async {
-    final fileName = 'video_${DateTime.now().millisecondsSinceEpoch}';
+    final fileName = 'video_${DateTime.now().millisecondsSinceEpoch}.mp4';
     final ref = _storage.ref().child('videos/$userId/$fileName');
     
     final uploadTask = ref.putFile(video);
-    final snapshot = await uploadTask;
+    
+    // Wait for the upload to complete
+    final snapshot = await uploadTask.whenComplete(() => null);
     
     if (snapshot.state == TaskState.success) {
+      // Wait a few seconds to ensure the file is fully available
+      await Future.delayed(const Duration(seconds: 5));
       return await ref.getDownloadURL();
     } else {
       throw Exception('Failed to upload video to Firebase Storage');
@@ -31,17 +35,17 @@ class VideoUploadService {
   }
 
   Future<(Video, Bit)> uploadVideo({
-    required File video,
+    required File videoFile,
     required String userId,
     required String title,
     required String description,
     ComedyStructure? comedyStructure,
   }) async {
     try {
-      await validateVideo(video);
+      await validateVideo(videoFile);
 
-      // Upload video to Firebase Storage
-      final videoUrl = await _uploadToFirebaseStorage(video, userId);
+      // Upload video to Firebase Storage and wait for completion
+      final videoUrl = await _uploadToFirebaseStorage(videoFile, userId);
 
       // Start a batch write
       final batch = _firestore.batch();
@@ -54,8 +58,9 @@ class VideoUploadService {
         'userId': userId,
         'storageUrl': videoUrl,
         'uploadDate': Timestamp.now(),
-        'status': 'ready', // TODO: Add VideoStatus enum
-        'duration': 0, // TODO: Add duration calculation
+        'status': VideoStatus.processing.toString().split('.').last,
+        'duration': 0,
+        'isProcessed': false,
       });
 
       // Create bit document
@@ -65,11 +70,11 @@ class VideoUploadService {
         title: title,
         description: description,
         userId: userId,
-        videoUrl: videoUrl,
+        storageUrl: videoUrl,
         comedyStructureId: comedyStructure?.id,
         createdAt: DateTime.now(),
         metadata: {
-          'duration': 0, // TODO: Add duration calculation
+          'duration': 0,
         },
       );
       batch.set(bitDoc, bit.toFirestore());
@@ -84,18 +89,25 @@ class VideoUploadService {
           'eyeroll': 0,
           'vomit': 0,
         },
-        'viewCount': 0,
-        'lastUpdated': Timestamp.now(),
       });
 
-      // Commit the batch
+      // Commit all changes
       await batch.commit();
 
-      // Return video and bit models
-      final videoModel = Video.fromFirestore(await videoDoc.get());
-      final bitModel = Bit.fromFirestore(await bitDoc.get());
+      // Create video object
+      final video = Video(
+        id: videoDoc.id,
+        title: title,
+        description: description,
+        userId: userId,
+        storageUrl: videoUrl,
+        duration: 0,
+        uploadDate: DateTime.now(),
+        status: VideoStatus.processing,
+        isProcessed: false,
+      );
 
-      return (videoModel, bitModel);
+      return (video, bit);
     } catch (e) {
       throw Exception('Failed to upload video: $e');
     }

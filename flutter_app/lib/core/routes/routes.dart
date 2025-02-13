@@ -7,7 +7,6 @@ import '../../screens/creator/analytics_screen.dart';
 import '../../screens/creator/trending_formats_screen.dart';
 import '../../screens/creator/my_comedy_structures_screen.dart';
 import '../../screens/viewer/feed_screen.dart';
-import '../../screens/onboarding/onboarding_screen.dart';
 import '../../screens/creator/camera_screen.dart';
 import '../../screens/creator/edit_comedy_structure_screen.dart';
 import '../../models/comedy_structure.dart';
@@ -15,7 +14,6 @@ import '../../models/comedy_structure.dart';
 class Routes {
   static const String login = '/login';
   static const String signup = '/signup';
-  static const String onboarding = '/onboarding';
   
   // Main navigation routes
   static const String creatorHome = '/creator';
@@ -39,13 +37,11 @@ class Routes {
 Route<dynamic> generateRoute(RouteSettings settings) {
   switch (settings.name) {
     case '/':
-      return MaterialPageRoute(builder: (_) => const OnboardingScreen());
+      return MaterialPageRoute(builder: (_) => const LoginScreen());
     case Routes.login:
       return MaterialPageRoute(builder: (_) => const LoginScreen());
     case Routes.signup:
       return MaterialPageRoute(builder: (_) => const SignupScreen());
-    case Routes.onboarding:
-      return MaterialPageRoute(builder: (_) => const OnboardingScreen());
     case Routes.creatorHome:
       return MaterialPageRoute(builder: (_) => const DashboardScreen());
     case Routes.viewerHome:
@@ -92,4 +88,4 @@ Route<dynamic> generateRoute(RouteSettings settings) {
         ),
       );
   }
-} 
+}

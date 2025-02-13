@@ -2,9 +2,28 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:jocus_app/models/comedy_structure.dart';
 import 'package:jocus_app/widgets/comedy_structure_card.dart';
+import 'package:provider/provider.dart';
+import 'package:jocus_app/providers/auth_provider.dart';
 
 class TrendingFormatsScreen extends StatelessWidget {
   const TrendingFormatsScreen({Key? key}) : super(key: key);
+
+  Future<void> _copyStructure(BuildContext context, ComedyStructure structure) async {
+    final userId = Provider.of<AuthProvider>(context, listen: false).currentUser?.uid;
+    if (userId == null) return;
+
+    final personalCopy = structure.createPersonalCopy(userId);
+    await FirebaseFirestore.instance
+        .collection('comedy_structures')
+        .add(personalCopy.toMap());
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Comedy structure copied to your library')),
+      );
+      Navigator.pop(context);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -35,14 +54,29 @@ class TrendingFormatsScreen extends StatelessWidget {
             itemCount: structures.length,
             itemBuilder: (context, index) {
               final structure = structures[index];
-              return ComedyStructureCard(
-                structure: structure,
-                showEditButton: true,
-                autoStart: false,
-                overlay: false,
-                onSave: () {
-                  Navigator.pop(context); // Pop the trending formats screen after successful copy
-                },
+              return Card(
+                margin: const EdgeInsets.all(8.0),
+                child: Column(
+                  children: [
+                    ComedyStructureCard(
+                      structure: structure,
+                      showEditButton: false,
+                      autoStart: false,
+                      overlay: false,
+                      onSave: () => _copyStructure(context, structure),
+                    ),
+                    ButtonBar(
+                      alignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton.icon(
+                          icon: const Icon(Icons.copy),
+                          label: const Text('Copy to My Library'),
+                          onPressed: () => _copyStructure(context, structure),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               );
             },
           );

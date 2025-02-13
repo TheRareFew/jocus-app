@@ -34,8 +34,30 @@ class ReactionService {
         .get();
 
     if (existingReactions.docs.isNotEmpty) {
-      // User has already reacted with this type
-      debugPrint('User $userId already reacted with $reactionType');
+      // User has already reacted with this type - remove the reaction
+      debugPrint('Removing existing reaction for user $userId of type $reactionType');
+      
+      // Start a transaction to ensure atomic updates
+      await _firestore.runTransaction((transaction) async {
+        // Get the analytics document
+        final analyticsRef = bitRef.collection('analytics').doc('stats');
+        final analyticsDoc = await transaction.get(analyticsRef);
+        
+        if (analyticsDoc.exists) {
+          final data = analyticsDoc.data() as Map<String, dynamic>;
+          final reactionCounts = data['reactionCounts'] as Map<String, dynamic>;
+          final totalReactions = data['totalReactions'] as int;
+
+          // Delete the reaction and update counts
+          transaction
+            ..delete(existingReactions.docs.first.reference)
+            ..update(analyticsRef, {
+              'totalReactions': totalReactions - 1,
+              'reactionCounts.$reactionType': (reactionCounts[reactionType] ?? 1) - 1,
+              'lastUpdated': FieldValue.serverTimestamp(),
+            });
+        }
+      });
       return;
     }
 

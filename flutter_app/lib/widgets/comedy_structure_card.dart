@@ -200,7 +200,7 @@ class _ComedyStructureCardState extends State<ComedyStructureCard> with SingleTi
                       Text(
                         beat.type.toUpperCase(),
                         style: TextStyle(
-                          color: widget.overlay ? Colors.white : _getColorForBeatType(beat.type),
+                          color: widget.overlay ? Colors.white : Theme.of(context).textTheme.bodyLarge?.color,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -209,7 +209,7 @@ class _ComedyStructureCardState extends State<ComedyStructureCard> with SingleTi
                         style: TextStyle(
                           color: widget.overlay 
                             ? (isActive ? Colors.white : Colors.white70)
-                            : (isActive ? Colors.black : Colors.black54),
+                            : (isActive ? Theme.of(context).textTheme.bodyLarge?.color : Theme.of(context).textTheme.bodyMedium?.color),
                           fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
                         ),
                       ),
@@ -220,7 +220,7 @@ class _ComedyStructureCardState extends State<ComedyStructureCard> with SingleTi
                             Icon(
                               Icons.text_fields,
                               size: 16,
-                              color: widget.overlay ? Colors.white70 : Colors.black45,
+                              color: widget.overlay ? Colors.white70 : Theme.of(context).textTheme.bodySmall?.color,
                             ),
                             const SizedBox(width: 4),
                             Expanded(
@@ -229,7 +229,7 @@ class _ComedyStructureCardState extends State<ComedyStructureCard> with SingleTi
                                 style: TextStyle(
                                   color: widget.overlay 
                                     ? Colors.white70 
-                                    : Colors.black45,
+                                    : Theme.of(context).textTheme.bodySmall?.color,
                                   fontStyle: FontStyle.italic,
                                   fontSize: 12,
                                 ),
@@ -252,7 +252,7 @@ class _ComedyStructureCardState extends State<ComedyStructureCard> with SingleTi
                           style: TextStyle(
                             color: widget.overlay 
                               ? (isActive ? Colors.white : Colors.white70)
-                              : (isActive ? Colors.black87 : Colors.black45),
+                              : (isActive ? Theme.of(context).textTheme.bodyLarge?.color : Theme.of(context).textTheme.bodyMedium?.color),
                           ),
                         ),
                     ],
@@ -312,13 +312,13 @@ class _ComedyStructureCardState extends State<ComedyStructureCard> with SingleTi
             title: Text(
               widget.structure.title,
               style: TextStyle(
-                color: widget.overlay ? Colors.white : null,
+                color: widget.overlay ? Colors.white : Theme.of(context).textTheme.titleLarge?.color,
               ),
             ),
             subtitle: widget.structure.isTemplate ? Text(
               'Laugh Rate: ${widget.structure.metrics['laughDensity']?.toStringAsFixed(1) ?? 'N/A'} /min',
               style: TextStyle(
-                color: widget.overlay ? Colors.white70 : null,
+                color: widget.overlay ? Colors.white70 : Theme.of(context).textTheme.bodyMedium?.color,
               ),
             ) : null,
             trailing: widget.showEditButton ? Row(
@@ -410,7 +410,7 @@ class _ComedyStructureCardState extends State<ComedyStructureCard> with SingleTi
                         child: Text(
                           widget.structure.description,
                           style: TextStyle(
-                            color: widget.overlay ? Colors.white : null,
+                            color: widget.overlay ? Colors.white : Theme.of(context).textTheme.bodyLarge?.color,
                           ),
                         ),
                       ),

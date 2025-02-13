@@ -39,6 +39,7 @@ class MyComedyStructuresScreen extends StatelessWidget {
             IconButton(
               icon: const Icon(Icons.add),
               onPressed: () {
+                final now = DateTime.now();
                 final blankStructure = ComedyStructure(
                   id: FirebaseFirestore.instance.collection('temp').doc().id, // Generate a temporary ID
                   title: '',
@@ -48,8 +49,9 @@ class MyComedyStructuresScreen extends StatelessWidget {
                   metadata: {},
                   authorId: userId,
                   isTemplate: false,
-                  createdAt: DateTime.now(),
-                  updatedAt: DateTime.now(),
+                  createdAt: now,
+                  updatedAt: now,
+                  reactions: [],
                 );
                 
                 Navigator.pushNamed(
@@ -98,6 +100,7 @@ class MyComedyStructuresScreen extends StatelessWidget {
                   const SizedBox(height: 16),
                   ElevatedButton.icon(
                     onPressed: () {
+                      final now = DateTime.now();
                       final blankStructure = ComedyStructure(
                         id: FirebaseFirestore.instance.collection('temp').doc().id,
                         title: '',
@@ -107,8 +110,9 @@ class MyComedyStructuresScreen extends StatelessWidget {
                         metadata: {},
                         authorId: userId,
                         isTemplate: false,
-                        createdAt: DateTime.now(),
-                        updatedAt: DateTime.now(),
+                        createdAt: now,
+                        updatedAt: now,
+                        reactions: [],
                       );
                       
                       Navigator.pushNamed(
