@@ -1,0 +1,9 @@
+subprojects {
+    plugins.withType(com.android.build.gradle.LibraryPlugin) { libPlugin ->
+        if (project.name.contains("google_mlkit_commons")) {
+            project.extensions.configure(com.android.build.gradle.LibraryExtension) {
+                namespace = "com.google.mlkit.commons"
+            }
+        }
+    }
+} 

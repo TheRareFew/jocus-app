@@ -7,6 +7,13 @@ import 'package:provider/provider.dart';
 import 'package:jocus_app/providers/auth_provider.dart';
 import 'package:jocus_app/services/reaction_service.dart';
 import 'package:jocus_app/models/video.dart';
+import 'dart:async';
+import 'dart:typed_data';
+import 'package:camera/camera.dart';
+import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
+import 'package:google_mlkit_commons/google_mlkit_commons.dart';
+import '../../services/face_detection_service.dart';
+import 'dart:io';  // Add this import
 
 class FeedScreen extends StatefulWidget {
   const FeedScreen({Key? key}) : super(key: key);
@@ -25,12 +32,24 @@ class _FeedScreenState extends State<FeedScreen> {
   DocumentSnapshot? _lastDocument;
   bool _hasMore = true;
   int _currentPage = 0;
+  CameraController? _cameraController;
+  late Future<void> _initializeControllerFuture;
+  final FaceDetectionService _faceDetectionService = FaceDetectionService();
+  double? _latestSmileProbability;
+  bool _isProcessing = false;
+  bool _hasReacted = false;
+  Duration _currentVideoPosition = Duration.zero;
+  DateTime _lastProcessedTime = DateTime.now();
+  Timer? _frameProcessingTimer;
+  VideoItem? _currentVideoItem;
+  final Map<String, GlobalKey<_VideoItemState>> _videoKeys = {};
 
   @override
   void initState() {
     super.initState();
     _loadMoreVideos();
     _pageController.addListener(_onPageChanged);
+    _initializeCamera();
   }
 
   void _onPageChanged() {
@@ -128,22 +147,177 @@ class _FeedScreenState extends State<FeedScreen> {
     }
   }
 
+  Future<void> _initializeCamera() async {
+    try {
+      final cameras = await availableCameras();
+      debugPrint('Available cameras: ${cameras.length}');
+      
+      final frontCamera = cameras.firstWhere(
+        (camera) => camera.lensDirection == CameraLensDirection.front,
+        orElse: () => cameras.first,
+      );
+      
+      debugPrint('Selected camera: ${frontCamera.name}');
+      
+      _cameraController = CameraController(
+        frontCamera,
+        ResolutionPreset.low,
+        enableAudio: false,
+        imageFormatGroup: ImageFormatGroup.yuv420,
+      );
+      
+      _initializeControllerFuture = _cameraController!.initialize();
+      await _initializeControllerFuture;
+      
+      if (!mounted) return;
+      
+      debugPrint('Camera initialized successfully');
+      debugPrint('Camera info: ${_cameraController!.value.description}');
+      
+      await _startImageStream();
+      setState(() {});
+    } catch (e) {
+      debugPrint('Error initializing camera: $e');
+    }
+  }
+
+  Future<void> _startImageStream() async {
+    if (_cameraController == null || !_cameraController!.value.isInitialized) {
+      debugPrint('Camera not initialized');
+      return;
+    }
+
+    try {
+      // Instead of continuous stream, use a timer to process frames
+      _frameProcessingTimer?.cancel();
+      _frameProcessingTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
+        if (_cameraController?.value.isInitialized ?? false) {
+          final image = await _cameraController!.takePicture();
+          _processImage(image);
+        }
+      });
+      debugPrint('Frame processing timer started');
+    } catch (e) {
+      debugPrint('Error starting frame processing: $e');
+    }
+  }
+
+  Future<void> _processImage(XFile image) async {
+    if (_isProcessing) return;
+    _isProcessing = true;
+
+    try {
+      final inputImage = InputImage.fromFilePath(image.path);
+      final smileProb = await _faceDetectionService.detectSmile(inputImage);
+      
+      if (smileProb != null && mounted) {
+        setState(() {
+          _latestSmileProbability = smileProb;
+        });
+
+        // Only trigger reaction if we haven't reacted recently and have valid video
+        if (!_hasReacted && _videos.isNotEmpty && _currentPage < _videos.length) {
+          // Big smile = ROFL, slight smile = smirk
+          if (smileProb >= 0.7) {
+            _handleSmileReaction('rofl');
+          } else if (smileProb >= 0.3) {
+            _handleSmileReaction('smirk');
+          }
+        }
+      }
+      
+      // Clean up the temporary image file
+      final file = File(image.path);
+      if (await file.exists()) {
+        await file.delete();
+      }
+    } catch (e, stackTrace) {
+      debugPrint('Error processing image: $e');
+      debugPrint('Stack trace: $stackTrace');
+    } finally {
+      _isProcessing = false;
+    }
+  }
+
+  Future<void> _handleSmileReaction(String reactionType) async {
+    if (!mounted || _hasReacted || _videos.isEmpty || _currentPage >= _videos.length) return;
+
+    try {
+      setState(() {
+        _hasReacted = true;
+      });
+
+      final currentVideo = _videos[_currentPage];
+      final videoKey = _videoKeys[currentVideo.id];
+      
+      if (videoKey?.currentState != null) {
+        videoKey!.currentState!._handleReaction(reactionType);
+      }
+
+      // Reset reaction flag after a cooldown period
+      Future.delayed(const Duration(seconds: 5), () {
+        if (mounted) {
+          setState(() {
+            _hasReacted = false;
+          });
+        }
+      });
+    } catch (e) {
+      debugPrint('Error handling smile reaction: $e');
+      setState(() {
+        _hasReacted = false;
+      });
+    }
+  }
+
   @override
   void dispose() {
+    _isProcessing = true; // Prevent new frames from being processed
+    _frameProcessingTimer?.cancel();  // Cancel the timer
+    if (_cameraController?.value.isInitialized ?? false) {
+      _cameraController?.dispose();
+    }
+    _faceDetectionService.dispose();
     _pageController.dispose();
     super.dispose();
   }
 
   @override
+  void deactivate() {
+    _frameProcessingTimer?.cancel();  // Cancel the timer
+    _cameraController?.dispose();
+    super.deactivate();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final CameraController? cameraController = _cameraController;
+
+    if (cameraController == null || !cameraController.value.isInitialized) {
+      return;
+    }
+
+    if (state == AppLifecycleState.inactive) {
+      _frameProcessingTimer?.cancel();  // Cancel the timer
+      cameraController.dispose();
+    } else if (state == AppLifecycleState.resumed) {
+      _initializeCamera();
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _videos.isEmpty && _isLoading
+      appBar: AppBar(title: const Text('Feed')),
+      body: Stack(
+        children: [
+          // Main video feed
+          _videos.isEmpty && _isLoading
           ? const Center(child: CircularProgressIndicator())
           : PageView.builder(
               controller: _pageController,
               scrollDirection: Axis.vertical,
               onPageChanged: (index) {
-                // Load more videos when user reaches near the end
                 if (index >= _videos.length - 2) {
                   _loadMoreVideos();
                 }
@@ -162,20 +336,80 @@ class _FeedScreenState extends State<FeedScreen> {
                 final video = _videos[index];
                 final videoData = video.data() as Map<String, dynamic>;
                 final bitId = _videoBitIds[video.id];
-                
-                // Prefer HLS URL if available, fall back to direct storage URL
                 final videoUrl = videoData['hlsUrl'] as String? ?? videoData['storageUrl'] as String;
-                debugPrint('Using video URL for ${video.id}: $videoUrl');
                 
-                return VideoItem(
-                  videoUrl: videoUrl,
-                  videoId: video.id,
-                  bitId: bitId ?? '',
-                  reactionService: _reactionService,
+                // Get or create a key for this video
+                _videoKeys[video.id] ??= GlobalKey<_VideoItemState>();
+                final videoKey = _videoKeys[video.id]!;
+                
+                return KeyedSubtree(
+                  key: ValueKey('video_${video.id}'),
+                  child: VideoItem(
+                    key: videoKey,
+                    videoUrl: videoUrl,
+                    videoId: video.id,
+                    bitId: bitId ?? '',
+                    reactionService: _reactionService,
+                    onPositionUpdate: (Duration position) {
+                      setState(() {
+                        _currentVideoPosition = position;
+                      });
+                    },
+                    onReactionUpdate: _handleReactionUpdate,
+                  ),
                 );
               },
             ),
+          
+          // Camera preview and debug overlay in top-left corner
+          Positioned(
+            top: 16,
+            left: 16,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Camera preview in a small container
+                if (_cameraController != null && _cameraController!.value.isInitialized)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      height: 160,  // Small fixed height
+                      width: 120,   // Small fixed width
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.white, width: 2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: CameraPreview(_cameraController!),
+                    ),
+                  ),
+                
+                // Small gap between camera preview and debug text
+                const SizedBox(height: 8),
+                
+                // Debug overlay text
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.black54,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  padding: const EdgeInsets.all(8),
+                  child: Text(
+                    'Smile: ${_latestSmileProbability?.toStringAsFixed(2) ?? 'N/A'}',
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
+  }
+
+  // Add this method to handle reaction updates from VideoItem
+  void _handleReactionUpdate(String type, bool isActive) {
+    // This method can be used to handle any side effects of reactions
+    debugPrint('Reaction update: $type is now ${isActive ? 'active' : 'inactive'}');
   }
 }
 
@@ -184,6 +418,8 @@ class VideoItem extends StatefulWidget {
   final String videoId;
   final String bitId;
   final ReactionService reactionService;
+  final Function(Duration) onPositionUpdate;
+  final Function(String, bool) onReactionUpdate;
 
   const VideoItem({
     Key? key,
@@ -191,6 +427,8 @@ class VideoItem extends StatefulWidget {
     required this.videoId,
     required this.bitId,
     required this.reactionService,
+    required this.onPositionUpdate,
+    required this.onReactionUpdate,
   }) : super(key: key);
 
   @override
@@ -400,12 +638,12 @@ class _VideoItemState extends State<VideoItem> with WidgetsBindingObserver {
         if (value.hasError) {
           debugPrint('Video controller error: ${value.errorDescription}');
         }
-        // Log any changes to playback state
         debugPrint('Playback state update - '
             'volume: ${value.volume}, '
             'playing: ${value.isPlaying}, '
             'position: ${value.position}, '
             'buffered: ${value.buffered}');
+        widget.onPositionUpdate(value.position);
       });
 
       // Cache the controller
@@ -509,6 +747,16 @@ class _VideoItemState extends State<VideoItem> with WidgetsBindingObserver {
     try {
       final videoController = _videoController;
       if (videoController == null) return;
+
+      // Update local state immediately
+      final bool newReactionState = !(_userReactions[type] ?? false);
+      setState(() {
+        _userReactions[type] = newReactionState;
+        _reactionCounts[type] = (_reactionCounts[type] ?? 0) + (newReactionState ? 1 : -1);
+      });
+      
+      // Notify parent about the reaction update
+      widget.onReactionUpdate(type, newReactionState);
       
       await widget.reactionService.addReaction(
         bitId: widget.bitId,
@@ -517,16 +765,18 @@ class _VideoItemState extends State<VideoItem> with WidgetsBindingObserver {
         timestamp: videoController.value.position.inSeconds.toDouble(),
       );
 
-      // Update local state
-      setState(() {
-        _userReactions[type] = !_userReactions[type]!;
-      });
-
-      // Refresh counts after adding/removing reaction
-      await _loadReactionCounts();
     } catch (e) {
       debugPrint('Error adding reaction: $e');
+      // Revert state if there was an error
+      setState(() {
+        _userReactions[type] = !(_userReactions[type] ?? false);
+        _reactionCounts[type] = (_reactionCounts[type] ?? 0) + (_userReactions[type]! ? 1 : -1);
+      });
     }
+  }
+
+  void addReaction(BuildContext context, String type) {
+    _handleReaction(type);
   }
 
   @override

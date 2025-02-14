@@ -1,0 +1,5 @@
+android {
+    namespace "com.jocus_app"
+    compileSdkVersion flutter.compileSdkVersion
+    // ... existing configuration ...
+} 
