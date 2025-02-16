@@ -3,6 +3,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../../core/routes/routes.dart';
 import '../../core/widgets/buttons/animated_gradient_button.dart';
 import '../../core/widgets/text/animated_gradient_text.dart';
+import '../../screens/viewer/feed_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({Key? key}) : super(key: key);
@@ -166,7 +167,9 @@ class DashboardScreen extends StatelessWidget {
     String route,
   ) {
     return AnimatedGradientButton(
-      onPressed: () => Navigator.pushNamed(context, route),
+      onPressed: () async {
+        Navigator.pushNamed(context, route);
+      },
       text: title,
       icon: icon,
       height: 64,

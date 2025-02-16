@@ -279,15 +279,11 @@ class _FeedScreenState extends State<FeedScreen> {
     }
     _faceDetectionService.dispose();
     _pageController.dispose();
-    // Dispose all cached video controllers
-    _VideoItemState.disposeAllCachedControllers();
     super.dispose();
   }
 
   @override
   void deactivate() {
-    // Pause and dispose all video controllers when screen is deactivated
-    _VideoItemState.disposeAllCachedControllers();
     super.deactivate();
   }
 
@@ -464,17 +460,7 @@ class _VideoItemState extends State<VideoItem> with WidgetsBindingObserver {
     'vomit': '🤮',
   };
   
-  static final Map<String, ChewieController> _cachedControllers = {};
-  static const int _maxCachedVideos = 3;
-
-  // Add method to dispose all cached controllers
-  static void disposeAllCachedControllers() {
-    for (var controller in _cachedControllers.values) {
-      controller.videoPlayerController.dispose();
-      controller.dispose();
-    }
-    _cachedControllers.clear();
-  }
+  int _playRetryCount = 0;
 
   @override
   void initState() {
@@ -494,54 +480,25 @@ class _VideoItemState extends State<VideoItem> with WidgetsBindingObserver {
   }
 
   @override
+  void deactivate() {
+    super.deactivate();
+    debugPrint('Deactivating video: ${widget.videoId}');
+    _videoController?.pause();
+  }
+
+  @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
     if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
       _videoController?.pause();
-      // Also pause all cached controllers
-      for (var controller in _cachedControllers.values) {
-        controller.videoPlayerController.pause();
-      }
     }
   }
 
   Future<void> _initializePlayer() async {
     if (_isInitializing) return;
     _isInitializing = true;
-    
-    String videoUrl = widget.videoUrl;
-    debugPrint('Initializing player for video ${widget.videoId} with URL: $videoUrl');
-    
     try {
-    // Listen for video status updates
-    final videoDoc = FirebaseFirestore.instance
-        .collection('videos')
-        .doc(widget.videoId);
-        
-    final unsubscribe = videoDoc.snapshots().listen((snapshot) {
-        if (!snapshot.exists) {
-          debugPrint('Video document does not exist for ${widget.videoId}');
-          return;
-        }
-      
-      final data = snapshot.data()!;
-      final status = VideoStatus.values.firstWhere(
-        (e) => e.toString().split('.').last == data['status'],
-        orElse: () => VideoStatus.initial,
-      );
-      final hlsUrl = data['hlsUrl'] as String?;
-        
-        debugPrint('Video ${widget.videoId} status: $status, HLS URL: $hlsUrl');
-      
-      if (status == VideoStatus.ready && hlsUrl != null && mounted) {
-          debugPrint('Switching to HLS URL for video ${widget.videoId}');
-          _disposeController();
-        _initializeWithUrl(hlsUrl);
-      }
-    });
-    
-    // Initial setup with direct URL
-    await _initializeWithUrl(videoUrl);
+      await _initializeWithUrl(widget.videoUrl);
     } catch (e) {
       debugPrint('Error initializing player for video ${widget.videoId}: $e');
     } finally {
@@ -551,98 +508,25 @@ class _VideoItemState extends State<VideoItem> with WidgetsBindingObserver {
   
   Future<void> _initializeWithUrl(String url) async {
     debugPrint('Initializing URL: $url');
-    
     try {
       setState(() {
         _hasError = false;
         _errorMessage = null;
       });
-
-      // Check if we already have a cached controller for this URL
-      if (_cachedControllers.containsKey(url)) {
-        debugPrint('Using cached controller for URL: $url');
-        final cachedController = _cachedControllers[url];
-        
-        // Validate cached controller
-        if (cachedController != null && 
-            cachedController.videoPlayerController.value.isInitialized &&
-            !cachedController.videoPlayerController.value.hasError) {
-          if (mounted) {
-            // Reset the video position and ensure it's ready to play
-            await cachedController.videoPlayerController.seekTo(Duration.zero);
-            await cachedController.videoPlayerController.setVolume(1.0);
-            await cachedController.videoPlayerController.play();
-            
-            setState(() {
-              _chewieController = cachedController;
-              _videoController = cachedController.videoPlayerController;
-              _isPlaying = true;
-            });
-          }
-          return;
-        } else {
-          // Remove invalid cached controller
-          debugPrint('Removing invalid cached controller for URL: $url');
-          _cachedControllers[url]?.dispose();
-          _cachedControllers.remove(url);
-        }
-      }
-
-      debugPrint('Creating new controller for URL: $url');
+      // Dispose any existing controller
+      _disposeController();
       
-      // Use master playlist for HLS streams
-      final Uri videoUri = Uri.parse(url);
-      // Keep master playlist for HLS streams to ensure proper audio track selection
-      final String modifiedUrl = url;
+      // Create a new VideoPlayerController
+      _videoController = VideoPlayerController.network(url);
+      await _videoController!.initialize();
       
-      debugPrint('Using URL: $modifiedUrl');
-      
-      // Create and initialize video player controller
-      final videoController = VideoPlayerController.networkUrl(
-        Uri.parse(modifiedUrl),
-        videoPlayerOptions: VideoPlayerOptions(
-          mixWithOthers: false,
-          allowBackgroundPlayback: false,
-        ),
-        httpHeaders: {
-          'Accept': '*/*',  // Accept any content type
-          'Range': 'bytes=0-',  // Request full content
-        },
-        formatHint: VideoFormat.hls,
-      );
-
-      // Initialize with volume at max
-      videoController.setVolume(1.0);
-      
-      debugPrint('Starting video initialization...');
-      await videoController.initialize();
-      
-      // Debug audio settings
-      debugPrint('Video initialized with following properties:');
-      debugPrint('Video error: ${videoController.value.hasError ? videoController.value.errorDescription : "none"}');
-      debugPrint('Volume: ${videoController.value.volume}');
-      debugPrint('Playing: ${videoController.value.isPlaying}');
-      debugPrint('Duration: ${videoController.value.duration}');
-      debugPrint('Size: ${videoController.value.size}');
-      
-      // Double check volume is set
-      await videoController.setVolume(1.0);
-      final volumeAfterSet = videoController.value.volume;
-      debugPrint('Volume after explicit set: $volumeAfterSet');
-      
-      if (!mounted) {
-        debugPrint('Widget not mounted after initialization, disposing controller');
-        videoController.dispose();
-        return;
-      }
-
-      // Create chewie controller with debug listener
-      final chewieController = ChewieController(
-        videoPlayerController: videoController,
-        autoPlay: true,
+      // Create a new ChewieController
+      _chewieController = ChewieController(
+        videoPlayerController: _videoController!,
+        autoPlay: false,
         looping: true,
-        aspectRatio: 9/16,
-        showControls: false,  // Temporarily enable controls for debugging
+        aspectRatio: 9 / 16,
+        showControls: false,
         allowPlaybackSpeedChanging: false,
         allowFullScreen: false,
         deviceOrientationsAfterFullScreen: [DeviceOrientation.portraitUp],
@@ -651,42 +535,17 @@ class _VideoItemState extends State<VideoItem> with WidgetsBindingObserver {
         allowMuting: false,
       );
       
-      // Add listener for video/audio state changes
-      videoController.addListener(() {
-        if (!mounted) return;
-        final value = videoController.value;
-        if (value.hasError) {
-          debugPrint('Video controller error: ${value.errorDescription}');
-        }
-        debugPrint('Playback state update - '
-            'volume: ${value.volume}, '
-            'playing: ${value.isPlaying}, '
-            'position: ${value.position}, '
-            'buffered: ${value.buffered}');
-        widget.onPositionUpdate(value.position);
-      });
-
-      // Cache the controller
-      _cachedControllers[url] = chewieController;
-      debugPrint('Controller cached for URL: $url');
+      // Reset video state
+      await _videoController!.seekTo(Duration.zero);
+      await _videoController!.setVolume(1.0);
       
-      // Ensure video starts playing
-      await videoController.play();
-      
-      // Remove oldest cached controller if we exceed max cache size
-      if (_cachedControllers.length > _maxCachedVideos) {
-        final oldestUrl = _cachedControllers.keys.first;
-        debugPrint('Removing oldest cached controller for URL: $oldestUrl');
-        _cachedControllers[oldestUrl]?.dispose();
-        _cachedControllers.remove(oldestUrl);
-      }
-
       if (mounted) {
         setState(() {
-          _chewieController = chewieController;
-          _videoController = videoController;
           _isPlaying = true;
         });
+        if (mounted && (ModalRoute.of(context)?.isCurrent ?? false)) {
+          await _videoController!.play();
+        }
       }
     } catch (e) {
       debugPrint('Error initializing URL $url: $e');
@@ -701,16 +560,8 @@ class _VideoItemState extends State<VideoItem> with WidgetsBindingObserver {
   }
 
   void _disposeController() {
-    final chewieController = _chewieController;
-    final videoController = _videoController;
-    
-    if (chewieController != null && !_cachedControllers.containsValue(chewieController)) {
-      chewieController.dispose();
-    }
-    if (videoController != null && !_cachedControllers.values.any((c) => c.videoPlayerController == videoController)) {
-      videoController.dispose();
-    }
-    
+    _chewieController?.dispose();
+    _videoController?.dispose();
     _chewieController = null;
     _videoController = null;
   }

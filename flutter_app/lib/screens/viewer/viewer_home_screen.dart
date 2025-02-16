@@ -24,7 +24,13 @@ class ViewerHomeScreen extends StatelessWidget {
           ),
           bottomNavigationBar: BottomNavBar(
             currentIndex: navigationProvider.currentIndex,
-            onTap: (index) => navigationProvider.setIndex(index),
+            onTap: (index) {
+              // Preload first video when switching to feed tab
+              if (index == 0 && navigationProvider.currentIndex != 0) {
+                FeedScreen.preloadFirstVideo();
+              }
+              navigationProvider.setIndex(index);
+            },
             isCreator: false,
           ),
         );

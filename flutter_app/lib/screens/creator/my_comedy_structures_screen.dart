@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:jocus_app/models/comedy_structure.dart';
 import 'package:jocus_app/providers/auth_provider.dart';
 import 'package:jocus_app/widgets/comedy_structure_card.dart';
+import 'package:jocus_app/screens/viewer/feed_screen.dart';
 
 class MyComedyStructuresScreen extends StatelessWidget {
   final bool selectionMode;
@@ -33,7 +34,11 @@ class MyComedyStructuresScreen extends StatelessWidget {
           if (!selectionMode) ...[
             IconButton(
               icon: const Icon(Icons.play_circle_outline),
-              onPressed: () => Navigator.pushNamed(context, '/viewer/feed'),
+              onPressed: () async {
+                if (context.mounted) {
+                  Navigator.pushNamed(context, '/viewer/feed');
+                }
+              },
               tooltip: 'Watch Feed',
             ),
             IconButton(
