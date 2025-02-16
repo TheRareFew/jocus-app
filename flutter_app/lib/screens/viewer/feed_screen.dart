@@ -14,6 +14,7 @@ import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:google_mlkit_commons/google_mlkit_commons.dart';
 import '../../services/face_detection_service.dart';
 import 'dart:io';  // Add this import
+import 'dart:math';
 
 class FeedScreen extends StatefulWidget {
   const FeedScreen({Key? key}) : super(key: key);
@@ -272,20 +273,21 @@ class _FeedScreenState extends State<FeedScreen> {
 
   @override
   void dispose() {
-    _isProcessing = true; // Prevent new frames from being processed
-    _frameProcessingTimer?.cancel();  // Cancel the timer
+    _frameProcessingTimer?.cancel();
     if (_cameraController?.value.isInitialized ?? false) {
       _cameraController?.dispose();
     }
     _faceDetectionService.dispose();
     _pageController.dispose();
+    // Dispose all cached video controllers
+    _VideoItemState.disposeAllCachedControllers();
     super.dispose();
   }
 
   @override
   void deactivate() {
-    _frameProcessingTimer?.cancel();  // Cancel the timer
-    _cameraController?.dispose();
+    // Pause and dispose all video controllers when screen is deactivated
+    _VideoItemState.disposeAllCachedControllers();
     super.deactivate();
   }
 
@@ -454,9 +456,25 @@ class _VideoItemState extends State<VideoItem> with WidgetsBindingObserver {
     'eyeroll': false,
     'vomit': false,
   };
+  final List<_FloatingEmoji> _floatingEmojis = [];
+  final Map<String, String> _reactionEmojis = {
+    'rofl': '🤣',
+    'smirk': '😏',
+    'eyeroll': '🙄',
+    'vomit': '🤮',
+  };
   
   static final Map<String, ChewieController> _cachedControllers = {};
   static const int _maxCachedVideos = 3;
+
+  // Add method to dispose all cached controllers
+  static void disposeAllCachedControllers() {
+    for (var controller in _cachedControllers.values) {
+      controller.videoPlayerController.dispose();
+      controller.dispose();
+    }
+    _cachedControllers.clear();
+  }
 
   @override
   void initState() {
@@ -478,10 +496,12 @@ class _VideoItemState extends State<VideoItem> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
-    if (state == AppLifecycleState.paused) {
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
       _videoController?.pause();
-    } else if (state == AppLifecycleState.resumed) {
-      _videoController?.play();
+      // Also pause all cached controllers
+      for (var controller in _cachedControllers.values) {
+        controller.videoPlayerController.pause();
+      }
     }
   }
 
@@ -755,6 +775,11 @@ class _VideoItemState extends State<VideoItem> with WidgetsBindingObserver {
         _reactionCounts[type] = (_reactionCounts[type] ?? 0) + (newReactionState ? 1 : -1);
       });
       
+      // Show floating emoji animation if adding a reaction
+      if (newReactionState) {
+        _showFloatingEmoji(type);
+      }
+      
       // Notify parent about the reaction update
       widget.onReactionUpdate(type, newReactionState);
       
@@ -775,8 +800,33 @@ class _VideoItemState extends State<VideoItem> with WidgetsBindingObserver {
     }
   }
 
-  void addReaction(BuildContext context, String type) {
-    _handleReaction(type);
+  void _showFloatingEmoji(String type) {
+    final RenderBox? box = context.findRenderObject() as RenderBox?;
+    if (box == null) return;
+
+    // Get the position of the reaction button
+    final buttonPosition = box.localToGlobal(
+      Offset(box.size.width - 66, box.size.height - 300 + (_reactionEmojis.keys.toList().indexOf(type) * 66)),
+    );
+
+    // Create and show the floating emoji
+    final floatingEmoji = _FloatingEmoji(
+      emoji: _reactionEmojis[type] ?? '😊',
+      startPosition: buttonPosition,
+    );
+
+    // Add overlay entry
+    final overlayState = Overlay.of(context);
+    final overlayEntry = OverlayEntry(
+      builder: (context) => floatingEmoji,
+    );
+
+    overlayState.insert(overlayEntry);
+
+    // Remove the overlay entry after animation completes
+    Future.delayed(const Duration(milliseconds: 1500), () {
+      overlayEntry.remove();
+    });
   }
 
   @override
@@ -922,6 +972,109 @@ class _ReactionButton extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _FloatingEmoji extends StatefulWidget {
+  final String emoji;
+  final Offset startPosition;
+
+  const _FloatingEmoji({
+    Key? key,
+    required this.emoji,
+    required this.startPosition,
+  }) : super(key: key);
+
+  @override
+  State<_FloatingEmoji> createState() => _FloatingEmojiState();
+}
+
+class _FloatingEmojiState extends State<_FloatingEmoji> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    );
+
+    // Create a curved animation for natural movement
+    final curvedAnimation = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeOut,
+    );
+
+    // Fade animation: start visible, end transparent
+    _fadeAnimation = Tween<double>(
+      begin: 0.8,
+      end: 0.0,
+    ).animate(curvedAnimation);
+
+    // Slide animation: move upward with slight randomization
+    final random = Random();
+    final randomX = (random.nextDouble() - 0.5) * 100; // Random horizontal movement
+    _slideAnimation = Tween<Offset>(
+      begin: widget.startPosition,
+      end: widget.startPosition + Offset(randomX, -200), // Move upward with random horizontal
+    ).animate(curvedAnimation);
+
+    // Scale animation: start normal, slightly grow then shrink
+    _scaleAnimation = TweenSequence<double>([
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 1.0, end: 1.5),
+        weight: 30.0,
+      ),
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 1.5, end: 0.8),
+        weight: 70.0,
+      ),
+    ]).animate(curvedAnimation);
+
+    // Start the animation
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      type: MaterialType.transparency,
+      child: Stack(
+        children: [
+          AnimatedBuilder(
+            animation: _controller,
+            builder: (context, child) {
+              return Positioned(
+                left: _slideAnimation.value.dx,
+                top: _slideAnimation.value.dy,
+                child: Opacity(
+                  opacity: _fadeAnimation.value,
+                  child: Transform.scale(
+                    scale: _scaleAnimation.value,
+                    child: Text(
+                      widget.emoji,
+                      style: const TextStyle(
+                        fontSize: 40,
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
     );
   }
 }
