@@ -13,15 +13,29 @@ class TrendingFormatsScreen extends StatelessWidget {
     if (userId == null) return;
 
     final personalCopy = structure.createPersonalCopy(userId);
-    await FirebaseFirestore.instance
-        .collection('comedy_structures')
-        .add(personalCopy.toMap());
-
+    
+    // Save to user's personal collection
+    final userStructuresRef = FirebaseFirestore.instance
+        .collection('users')
+        .doc(userId)
+        .collection('comedy_structures');
+    
+    final docRef = await userStructuresRef.add(personalCopy.toMap());
+    
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Comedy structure copied to your library')),
       );
-      Navigator.pop(context);
+      
+      // Navigate to edit screen with the copied structure
+      Navigator.pushReplacementNamed(
+        context,
+        '/creator/edit-comedy-structure',
+        arguments: {
+          'structure': personalCopy.copyWith(id: docRef.id),
+          'userId': userId,
+        },
+      );
     }
   }
 

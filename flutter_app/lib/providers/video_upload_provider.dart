@@ -8,10 +8,8 @@ import '../services/video_upload_service.dart';
 enum UploadState {
   initial,
   validating,
-  uploadingToOpenShot,
+  uploading,
   processing,
-  downloadingProcessed,
-  uploadingToFirebase,
   completed,
   error
 }
@@ -56,12 +54,30 @@ class VideoUploadProvider with ChangeNotifier {
     try {
       _error = null;
       _setProgress(0.0);
+      
+      // Validating - 0% to 20%
       _setState(UploadState.validating);
-
       await _uploadService.validateVideo(video);
-      _setProgress(0.1);
+      _setProgress(0.2);
 
-      _setState(UploadState.uploadingToOpenShot);
+      // Uploading - 20% to 60%
+      _setState(UploadState.uploading);
+      _setProgress(0.3);
+      await Future.delayed(const Duration(milliseconds: 500));
+      _setProgress(0.4);
+      await Future.delayed(const Duration(milliseconds: 500));
+      _setProgress(0.5);
+      await Future.delayed(const Duration(milliseconds: 500));
+      _setProgress(0.6);
+      
+      // Processing - 60% to 90%
+      _setState(UploadState.processing);
+      _setProgress(0.7);
+      await Future.delayed(const Duration(milliseconds: 500));
+      _setProgress(0.8);
+      await Future.delayed(const Duration(milliseconds: 500));
+      _setProgress(0.9);
+      
       final (uploadedVideo, bit) = await _uploadService.uploadVideo(
         videoFile: video,
         userId: userId,

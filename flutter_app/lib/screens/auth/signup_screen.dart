@@ -45,7 +45,27 @@ class _SignupScreenState extends State<SignupScreen> {
           _passwordController.text,
         );
         if (mounted) {
-          Navigator.pushReplacementNamed(context, Routes.studio);
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (BuildContext context) {
+              return AlertDialog(
+                title: const Text('Verify Your Email'),
+                content: const Text(
+                  'A verification email has been sent to your email address. Please verify your email before signing in.',
+                ),
+                actions: <Widget>[
+                  TextButton(
+                    child: const Text('OK'),
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      Navigator.pushReplacementNamed(context, Routes.login);
+                    },
+                  ),
+                ],
+              );
+            },
+          );
         }
       } catch (e) {
         if (mounted) {

@@ -52,14 +52,14 @@ class AnimatedGradientButton extends StatelessWidget {
           shape: RoundedRectangleBorder(
             borderRadius: borderRadius ?? BorderRadius.circular(12),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 24),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             if (icon != null) ...[
-              Icon(icon, size: 24),
-              const SizedBox(width: 12),
+              Icon(icon, size: 20),
+              const SizedBox(width: 8),
             ],
             Text(
               text,
@@ -68,14 +68,14 @@ class AnimatedGradientButton extends StatelessWidget {
                 fontWeight: FontWeight.w600,
                 color: Colors.white,
                 fontFamily: 'Righteous',
-                letterSpacing: 1,
+                letterSpacing: 0.5,
               ),
             ),
             if (isLoading) ...[
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
               const SizedBox(
-                width: 20,
-                height: 20,
+                width: 16,
+                height: 16,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
                   valueColor: AlwaysStoppedAnimation<Color>(Colors.white),

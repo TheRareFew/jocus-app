@@ -56,7 +56,7 @@ class AuthProvider with ChangeNotifier {
   bool get isDevBypassEnabled => _devBypass;
 
   User? get currentUser => _user;
-  bool get isAuthenticated => _devBypass || _user != null;
+  bool get isAuthenticated => _devBypass || (_user != null && _user!.emailVerified);
 
   Future<UserCredential> signInWithEmailAndPassword(String email, String password) async {
     try {
@@ -64,6 +64,9 @@ class AuthProvider with ChangeNotifier {
         email: email,
         password: password,
       );
+      if (!credential.user!.emailVerified) {
+        throw Exception('Please verify your email before signing in.');
+      }
       return credential;
     } catch (e) {
       throw Exception('Failed to sign in: $e');
@@ -84,6 +87,7 @@ class AuthProvider with ChangeNotifier {
         email: email,
         password: password,
       );
+      await credential.user!.sendEmailVerification();
       return credential;
     } catch (e) {
       throw Exception('Failed to create account: $e');
@@ -95,6 +99,24 @@ class AuthProvider with ChangeNotifier {
       await _auth.sendPasswordResetEmail(email: email);
     } catch (e) {
       throw Exception('Failed to send password reset email: $e');
+    }
+  }
+
+  Future<void> sendVerificationEmail() async {
+    try {
+      await _user?.sendEmailVerification();
+    } catch (e) {
+      throw Exception('Failed to send verification email: $e');
+    }
+  }
+
+  Future<void> reloadUser() async {
+    try {
+      await _user?.reload();
+      _user = _auth.currentUser;
+      notifyListeners();
+    } catch (e) {
+      throw Exception('Failed to reload user: $e');
     }
   }
 } 

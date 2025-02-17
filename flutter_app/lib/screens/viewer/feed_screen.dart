@@ -252,7 +252,7 @@ class _FeedScreenState extends State<FeedScreen> {
       final videoKey = _videoKeys[currentVideo.id];
       
       if (videoKey?.currentState != null) {
-        videoKey!.currentState!._handleReaction(reactionType);
+        videoKey!.currentState!._handleReaction(reactionType, isFacialReaction: true);
       }
 
       // Reset reaction flag after a cooldown period
@@ -607,79 +607,6 @@ class _VideoItemState extends State<VideoItem> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _handleReaction(String type) async {
-    final userId = context.read<AuthProvider>().currentUser?.uid;
-    if (userId == null) return;
-    if (widget.bitId.isEmpty) {
-      debugPrint('Cannot add reaction: No bit ID found for video');
-      return;
-    }
-
-    try {
-      final videoController = _videoController;
-      if (videoController == null) return;
-
-      // Update local state immediately
-      final bool newReactionState = !(_userReactions[type] ?? false);
-      setState(() {
-        _userReactions[type] = newReactionState;
-        _reactionCounts[type] = (_reactionCounts[type] ?? 0) + (newReactionState ? 1 : -1);
-      });
-      
-      // Show floating emoji animation if adding a reaction
-      if (newReactionState) {
-        _showFloatingEmoji(type);
-      }
-      
-      // Notify parent about the reaction update
-      widget.onReactionUpdate(type, newReactionState);
-      
-      await widget.reactionService.addReaction(
-        bitId: widget.bitId,
-        userId: userId,
-        reactionType: type,
-        timestamp: videoController.value.position.inSeconds.toDouble(),
-      );
-
-    } catch (e) {
-      debugPrint('Error adding reaction: $e');
-      // Revert state if there was an error
-      setState(() {
-        _userReactions[type] = !(_userReactions[type] ?? false);
-        _reactionCounts[type] = (_reactionCounts[type] ?? 0) + (_userReactions[type]! ? 1 : -1);
-      });
-    }
-  }
-
-  void _showFloatingEmoji(String type) {
-    final RenderBox? box = context.findRenderObject() as RenderBox?;
-    if (box == null) return;
-
-    // Get the position of the reaction button
-    final buttonPosition = box.localToGlobal(
-      Offset(box.size.width - 66, box.size.height - 300 + (_reactionEmojis.keys.toList().indexOf(type) * 66)),
-    );
-
-    // Create and show the floating emoji
-    final floatingEmoji = _FloatingEmoji(
-      emoji: _reactionEmojis[type] ?? '😊',
-      startPosition: buttonPosition,
-    );
-
-    // Add overlay entry
-    final overlayState = Overlay.of(context);
-    final overlayEntry = OverlayEntry(
-      builder: (context) => floatingEmoji,
-    );
-
-    overlayState.insert(overlayEntry);
-
-    // Remove the overlay entry after animation completes
-    Future.delayed(const Duration(milliseconds: 1500), () {
-      overlayEntry.remove();
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final chewieController = _chewieController;
@@ -768,6 +695,84 @@ class _VideoItemState extends State<VideoItem> with WidgetsBindingObserver {
         ),
       ],
     );
+  }
+
+  Future<void> _handleReaction(String type, {bool isFacialReaction = false}) async {
+    final userId = context.read<AuthProvider>().currentUser?.uid;
+    if (userId == null) return;
+    if (widget.bitId.isEmpty) {
+      debugPrint('Cannot add reaction: No bit ID found for video');
+      return;
+    }
+
+    try {
+      final videoController = _videoController;
+      if (videoController == null) return;
+
+      // For facial reactions, only add if not already reacted
+      if (isFacialReaction && (_userReactions[type] ?? false)) {
+        return;
+      }
+
+      // Update local state
+      final bool newReactionState = isFacialReaction ? true : !(_userReactions[type] ?? false);
+      setState(() {
+        _userReactions[type] = newReactionState;
+        _reactionCounts[type] = (_reactionCounts[type] ?? 0) + (newReactionState ? 1 : -1);
+      });
+      
+      // Show floating emoji animation if adding a reaction
+      if (newReactionState) {
+        _showFloatingEmoji(type);
+      }
+      
+      // Notify parent about the reaction update
+      widget.onReactionUpdate(type, newReactionState);
+      
+      await widget.reactionService.addReaction(
+        bitId: widget.bitId,
+        userId: userId,
+        reactionType: type,
+        timestamp: videoController.value.position.inSeconds.toDouble(),
+      );
+
+    } catch (e) {
+      debugPrint('Error adding reaction: $e');
+      // Revert state if there was an error
+      setState(() {
+        _userReactions[type] = !(_userReactions[type] ?? false);
+        _reactionCounts[type] = (_reactionCounts[type] ?? 0) + (_userReactions[type]! ? 1 : -1);
+      });
+    }
+  }
+
+  void _showFloatingEmoji(String type) {
+    final RenderBox? box = context.findRenderObject() as RenderBox?;
+    if (box == null) return;
+
+    // Get the position of the reaction button
+    final buttonPosition = box.localToGlobal(
+      Offset(box.size.width - 66, box.size.height - 300 + (_reactionEmojis.keys.toList().indexOf(type) * 66)),
+    );
+
+    // Create and show the floating emoji
+    final floatingEmoji = _FloatingEmoji(
+      emoji: _reactionEmojis[type] ?? '😊',
+      startPosition: buttonPosition,
+    );
+
+    // Add overlay entry
+    final overlayState = Overlay.of(context);
+    final overlayEntry = OverlayEntry(
+      builder: (context) => floatingEmoji,
+    );
+
+    overlayState.insert(overlayEntry);
+
+    // Remove the overlay entry after animation completes
+    Future.delayed(const Duration(milliseconds: 1500), () {
+      overlayEntry.remove();
+    });
   }
 }
 
