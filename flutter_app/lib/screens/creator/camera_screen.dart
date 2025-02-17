@@ -86,6 +86,9 @@ class _CameraScreenState extends State<CameraScreen> {
     );
 
     await _controller!.initialize();
+    // Set exposure and focus mode to prevent darkening
+    await _controller!.setExposureMode(ExposureMode.auto);
+    await _controller!.setFocusMode(FocusMode.auto);
     if (mounted) setState(() => _isInitialized = true);
   }
 

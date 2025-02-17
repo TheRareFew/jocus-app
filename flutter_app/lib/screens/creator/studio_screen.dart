@@ -103,9 +103,9 @@ class _StudioScreenState extends State<StudioScreen> {
             child: Container(
               decoration: BoxDecoration(
                 color: Colors.black.withOpacity(0.5),
-              ),
-            ),
           ),
+        ),
+      ),
           // Content
           Scaffold(
             backgroundColor: Colors.transparent,
@@ -124,12 +124,12 @@ class _StudioScreenState extends State<StudioScreen> {
                         bottom: 40.0,
                       ),
                       child: Consumer<VideoUploadProvider>(
-                        builder: (context, provider, child) {
+        builder: (context, provider, child) {
                           return Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisAlignment: MainAxisAlignment.center,
                             crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              if (provider.state == UploadState.initial) ...[
+              children: [
+                if (provider.state == UploadState.initial) ...[
                                 const SizedBox(height: 20),
                                 AnimatedGradientText(
                                   text: 'STUDIO',
@@ -190,64 +190,64 @@ class _StudioScreenState extends State<StudioScreen> {
                                   angle: 45,
                                   size: 2,
                                 ),
-                                const SizedBox(height: 16),
-                                // Comedy Structure Selection
+                  const SizedBox(height: 16),
+                  // Comedy Structure Selection
                                 Card(
                                   color: Colors.black.withOpacity(0.3),
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      ListTile(
-                                        title: Text(
-                                          selectedStructure?.title ?? 'Select Comedy Structure (Optional)',
-                                          style: TextStyle(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ListTile(
+                            title: Text(
+                              selectedStructure?.title ?? 'Select Comedy Structure (Optional)',
+                              style: TextStyle(
                                             color: selectedStructure == null ? Colors.grey : Colors.white,
-                                          ),
-                                        ),
-                                        trailing: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            if (selectedStructure != null)
-                                              IconButton(
+                              ),
+                            ),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (selectedStructure != null)
+                                  IconButton(
                                                 icon: const Icon(Icons.clear, color: Colors.white),
-                                                onPressed: () {
-                                                  setState(() {
-                                                    selectedStructure = null;
-                                                  });
-                                                },
-                                              ),
-                                            const Icon(Icons.arrow_forward_ios, color: Colors.white),
-                                          ],
-                                        ),
-                                        onTap: () async {
-                                          final structure = await Navigator.push<ComedyStructure>(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (context) => const MyComedyStructuresScreen(
-                                                selectionMode: true,
-                                              ),
-                                            ),
-                                          );
-                                          if (structure != null) {
-                                            setState(() {
-                                              selectedStructure = structure;
-                                            });
-                                          }
-                                        },
-                                      ),
-                                      if (selectedStructure == null)
-                                        const Padding(
-                                          padding: EdgeInsets.fromLTRB(16, 0, 16, 16),
-                                          child: Text(
-                                            'Adding a comedy structure helps organize your content and track audience reactions at specific moments.',
-                                            style: TextStyle(
-                                              color: Colors.grey,
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                        ),
-                                    ],
+                                    onPressed: () {
+                                      setState(() {
+                                        selectedStructure = null;
+                                      });
+                                    },
                                   ),
+                                            const Icon(Icons.arrow_forward_ios, color: Colors.white),
+                              ],
+                            ),
+                            onTap: () async {
+                              final structure = await Navigator.push<ComedyStructure>(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const MyComedyStructuresScreen(
+                                    selectionMode: true,
+                                  ),
+                                ),
+                              );
+                              if (structure != null) {
+                                setState(() {
+                                  selectedStructure = structure;
+                                });
+                              }
+                            },
+                          ),
+                          if (selectedStructure == null)
+                            const Padding(
+                              padding: EdgeInsets.fromLTRB(16, 0, 16, 16),
+                              child: Text(
+                                'Adding a comedy structure helps organize your content and track audience reactions at specific moments.',
+                                style: TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
                                 ).animate()
                                 .fadeIn(delay: 200.ms)
                                 .slideY(begin: 0.2, end: 0),
@@ -319,15 +319,15 @@ class _StudioScreenState extends State<StudioScreen> {
                                       .fadeIn(delay: 400.ms)
                                       .slideX(begin: 0.2, end: 0),
                                     ],
-                                  ),
-                                ),
-                                const SizedBox(height: 32),
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
                                     Expanded(
                                       child: AnimatedGradientButton(
-                                        onPressed: () => _pickAndUploadVideo(context),
+                        onPressed: () => _pickAndUploadVideo(context),
                                         text: 'Upload',
                                         icon: Icons.upload_file,
                                         height: 48,
@@ -338,30 +338,30 @@ class _StudioScreenState extends State<StudioScreen> {
                                     const SizedBox(width: 12),
                                     Expanded(
                                       child: AnimatedGradientButton(
-                                        onPressed: () => _startRecording(context),
+                        onPressed: () => _startRecording(context),
                                         text: 'Record',
                                         icon: Icons.videocam,
                                         height: 48,
                                       ).animate()
                                       .fadeIn(delay: 600.ms)
                                       .slideX(begin: 0.2, end: 0),
-                                    ),
-                                  ],
-                                ),
-                              ] else if (provider.state == UploadState.error) ...[
-                                const Icon(Icons.error_outline, size: 64, color: Colors.red),
-                                const SizedBox(height: 16),
-                                Text(
-                                  provider.error ?? 'An error occurred',
-                                  style: const TextStyle(color: Colors.red),
-                                ),
-                                const SizedBox(height: 16),
+                      ),
+                    ],
+                  ),
+                ] else if (provider.state == UploadState.error) ...[
+                  const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                  const SizedBox(height: 16),
+                  Text(
+                    provider.error ?? 'An error occurred',
+                    style: const TextStyle(color: Colors.red),
+                  ),
+                  const SizedBox(height: 16),
                                 AnimatedGradientButton(
-                                  onPressed: () => provider.reset(),
+                    onPressed: () => provider.reset(),
                                   text: 'Try Again',
                                   height: 64,
-                                ),
-                              ] else if (provider.state == UploadState.completed) ...[
+                  ),
+                ] else if (provider.state == UploadState.completed) ...[
                                 Center(
                                   child: Column(
                                     mainAxisAlignment: MainAxisAlignment.center,
@@ -409,7 +409,7 @@ class _StudioScreenState extends State<StudioScreen> {
                                         angle: 45,
                                         size: 2,
                                       ),
-                                      const SizedBox(height: 16),
+                  const SizedBox(height: 16),
                                       AnimatedGradientText(
                                         text: 'UPLOAD COMPLETE!',
                                         fontSize: 32,
@@ -431,12 +431,12 @@ class _StudioScreenState extends State<StudioScreen> {
                                       ),
                                       const SizedBox(height: 24),
                                       AnimatedGradientButton(
-                                        onPressed: () {
-                                          provider.reset();
-                                          setState(() {
-                                            selectedStructure = null;
-                                          });
-                                        },
+                    onPressed: () {
+                      provider.reset();
+                      setState(() {
+                        selectedStructure = null;
+                      });
+                    },
                                         text: 'Upload Another',
                                         icon: Icons.add_circle,
                                         height: 48,
@@ -446,8 +446,8 @@ class _StudioScreenState extends State<StudioScreen> {
                                       .slideY(begin: 0.2, end: 0),
                                     ],
                                   ),
-                                ),
-                              ] else ...[
+                  ),
+                ] else ...[
                                 Center(
                                   child: Column(
                                     mainAxisAlignment: MainAxisAlignment.center,
@@ -473,16 +473,17 @@ class _StudioScreenState extends State<StudioScreen> {
                                         angle: -10,
                                       ),
                                       const SizedBox(height: 40),
-                                      const CircularProgressIndicator(color: Colors.white),
-                                      const SizedBox(height: 16),
-                                      Text(
-                                        'Uploading... ${(provider.progress * 100).toStringAsFixed(1)}%',
-                                        style: const TextStyle(color: Colors.white),
-                                        textAlign: TextAlign.center,
+                                      SizedBox(
+                                        width: 200,
+                                        height: 32,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 4,
+                                          color: Colors.white,
+                                        ),
                                       ),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        _getUploadStateMessage(provider.state),
+                                      const SizedBox(height: 16),
+                  Text(
+                    _getUploadStateMessage(provider.state),
                                         style: TextStyle(
                                           color: Colors.white.withOpacity(0.7),
                                           fontSize: 14,
@@ -491,9 +492,9 @@ class _StudioScreenState extends State<StudioScreen> {
                                       ),
                                     ],
                                   ),
-                                ),
-                              ],
-                            ],
+                  ),
+                ],
+              ],
                           );
                         },
                       ),
